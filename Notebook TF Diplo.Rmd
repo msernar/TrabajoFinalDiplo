@@ -1,0 +1,15 @@
+---
+title: "Trabajo Final DiplomaCSC - Opción 2"
+output: html_notebook
+---
+Prueba para trabajar colaborativamente el notebook
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+corpus <- read_csv("M5_corpus_medios.csv")
+```
+
