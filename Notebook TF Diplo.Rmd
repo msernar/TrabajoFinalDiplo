@@ -1,15 +1,68 @@
 ---
 title: "Trabajo Final DiplomaCSC - Opción 2"
 output: html_notebook
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
-Prueba para trabajar colaborativamente el notebook
 
+## Carga de librerías a utilizar
 
 ```{r}
 library(tidyverse)
+library(tidytext)
 ```
 
+## Etapa 1: cargar de datos y preprocesamiento
+
+El archivo que se adjunta consiste en un corpus de unas 7.000 noticias
+scrapeadas entre julio y septiembre de 2019 de los siguientes medios de
+circulación nacional:
+
+Télam La Nación Clarín Perfil Infobae MinutoUno Página 12
+
+Constituye una muestra aleatoria del corpus construido por Florencia
+Piñeyrúa para su tesina de grado “Procesamiento del lenguaje natural
+aplicado al estudio de tópicos de noticias de seguridad en Argentina:
+julio a septiembre 2019”. Una exposición más concentrada de sus
+resultados puede encontrarse en el siguiente artículo.
+
+El corpus contiene, las siguientes variables: 
+id : identificador de cada documento 
+url : link a la noticia original 
+fecha : fecha de publicación
+anio : año de publicación 
+mes : mes de publicación 
+dia : dia de publicación 
+medio : medio en el que fue publicado 
+orientacion: clasificación -provisoria- de los medios según su línea editorial predominante (más conservador, más progresista, neutral) titulo 
+texto
+
+### Carga dataset
 ```{r}
 corpus <- read_csv("M5_corpus_medios.csv")
 ```
 
+### Normalización
+```{r}
+
+```
+
+### Eliminar stopwords
+```{r}
+
+```
+
+### Tokenización y matriz
+```{r}
+
+```
+
+
+## Etapa 2: consignas
+
+¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta
+
+¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar diferencias en cada uno de los medios? Explicar qué método se utilizó para responder la pregunta, cuáles son los supuestos del mismo. Generar las visualizaciones más adecuadas para responder a las preguntas
+
+A continuación, seleccionar las noticias vinculadas a algún tópico relevante (por ejemplo, “Elecciones”) y construir un clasificador para predecir la orientación del diario. Utilizar alguno de los modelos de clasificación vistos a lo largo de al Diplomatura (regresión logística, random forest, etc.). Utilizar como features el “Spanish Billion Word Corpus and Embeddings”, analizado en clase (pueden descargar el embedding en formato .bin del link). ¿Qué resultados arroja el modelo? ¿Es posible mediante el texto de las noticias conocer la línea editorial del diario? Generar las visualizaciones y tablas correspondientes para una correcta evaluación del modelo.
