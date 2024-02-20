@@ -11,6 +11,8 @@ editor_options:
 ```{r}
 library(tidyverse)
 library(tidytext)
+library(tm)
+library(textstem)
 ```
 
 ## Etapa 1: cargar de datos y preprocesamiento
@@ -50,9 +52,9 @@ corpus_tidy <- corpus_base %>%
          titulo = stringi::stri_trans_general(titulo, "Latin-ASCII")) %>% 
     mutate(texto = str_replace_all(texto, '[[:digit:]]+', '')) %>% 
     unnest_tokens(word, texto, to_lower = TRUE)
+
+# En este este código tomamos el corpus de texto "corpus_base", lo normalizamos convirtiendo el texto y el título a caracteres ASCII, eliminamos los dígitos del texto y finalmente los dividimos en tokens para su posterior análisis.
 ```
-
-
 
 ### Eliminar stopwords
 ```{r}
@@ -60,23 +62,36 @@ stop_words_1 <- read_csv('https://raw.githubusercontent.com/Alir3z4/stop-words/m
         rename(word = X1) %>%
         mutate(word = stringi::stri_trans_general(word, "Latin-ASCII"))
 
+# En este código leemos un archivo CSV de stop words en español ubicado en la URL especificada, renombramos la columna a "word" y luego transformamos las palabras en la columna para asegurarnos de que estén en formato ASCII. El resultado final es un dataframe llamado "stop_words_1" que contiene la lista de stopwords normalizadas.
+
 stop_words_2 <- read_csv("z_stopwords.txt", col_names = FALSE) %>% 
   rename(word = X1) %>% 
    mutate(word=stringi::stri_trans_general(word, "Latin-ASCII"))
+
+# Ídem pero el archivo CSV llamado "z_stopwords.txt" se carga desde la carpeta.
 
 stop_words_full <- stop_words_1 %>% 
   bind_rows(stop_words_2) %>% 
   distinct()
 
+# En este paso combinamos los dos dataframes de stopwords, eliminamos las filas duplicadas y guardamos el resultado en un nuevo dataframe llamado "stop_words_full". Este dataframe contiene la lista completa y única de stopwords normalizadas.
+
 corpus_tidy <- corpus_tidy %>% 
   anti_join(stop_words_full)
+
+# En este código eliminamos las stopwords del corpus de texto "corpus_tidy" utilizando la lista de stopwords contenida en el dataframe "stop_words_full". Este paso en el procesamiento de texto es necesario para eliminar palabras que no aportan significado para el análisis posterior.
+
 ```
+
 ### Exploración palabras más frecuentes
 ```{r}
 corpus_tidy %>%
         group_by(word) %>%
         summarise(n=n()) %>%
         arrange(desc(n))
+
+# Mediante este código agrupamos las palabras únicas en el corpus, contamos el número de ocurrencias de cada palabra y las ordenamos en función de su frecuencia de aparición, mostrando primero las palabras más frecuentes.
+
 ```
 ```{r}
 corpus_tidy %>%
@@ -85,8 +100,10 @@ corpus_tidy %>%
         arrange(desc(n)) %>%
         pivot_wider(names_from = medio,
                     values_from = n)
-```
 
+# Este código calcula el recuento de ocurrencias de cada palabra en el corpus de texto agrupado según el medio de comunicación, y luego reorganiza estos resultados en un formato más ancho donde cada medio tiene sus recuentos de ocurrencias asociados para cada palabra.
+
+```
 
 ### Matriz
 ```{r}
@@ -95,12 +112,17 @@ word_counts <- corpus_tidy %>%
         summarise(n=n()) %>%
         ungroup()
 word_counts
+
+# En este paso el código calcula el recuento de ocurrencias de cada palabra en el corpus de texto, agrupado por el identificador único de cada documento, y almacena estos recuentos en un nuevo dataframe llamado "word_counts". La utilidad radica en la posibilidad de analizar la frecuencia de palabras en cada documento individualmente.
 ```
+
 ```{r}
 disc_dtm <- word_counts %>%
                 cast_dtm(id, word, n)
 
 disc_dtm
+
+# Este código considera los recuentos de ocurrencias de palabras en cada documento almacenados en el dataframe "word_counts" y los convierte en una matriz dispersa de términos del documento (DTM) llamada "disc_dtm". Esto es útil para el análisis de texto, donde se puede utilizar la matriz DTM como entrada para diversos modelos de aprendizaje automático o análisis de texto.
 ```
 
 ## Etapa 2: consignas
