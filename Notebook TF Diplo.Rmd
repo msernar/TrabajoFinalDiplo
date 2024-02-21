@@ -81,6 +81,10 @@ corpus_tidy <- corpus_tidy %>%
 
 # En este código eliminamos las stopwords del corpus de texto "corpus_tidy" utilizando la lista de stopwords contenida en el dataframe "stop_words_full". Este paso en el procesamiento de texto es necesario para eliminar palabras que no aportan significado para el análisis posterior.
 
+
+# PROBÉ UN MONTÓN DE ALTERNATIVAS, PERO EL CÓDIGO DE LA LEMATIZACIÓN SIGUE SIN FUNCIONAR (FIJATE QUE EL ELEMENTO CORPUS_TIDY_LEMM DUPLICA LAS MIMAS PALABRAS EN LA ÚLTIMA COLUMNA). ENTIENDO QUE PUEDE SER UN TEMA DEL DICCIONARIO QUE SE USA, PERO CON OTRAS OPCIONES TAMPOCO ME FUNCIONA
+corpus_tidy_lemm <- corpus_tidy_lemm %>%
+  mutate(word_lemmatized = lemmatize_words(word, language = "es"))
 ```
 
 ### Exploración palabras más frecuentes
