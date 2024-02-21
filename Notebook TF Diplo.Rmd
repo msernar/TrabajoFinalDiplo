@@ -13,6 +13,8 @@ library(tidyverse)
 library(tidytext)
 library(tm)
 library(textstem)
+library(patchwork)
+
 ```
 
 ## Etapa 1: cargar de datos y preprocesamiento
@@ -83,14 +85,14 @@ corpus_tidy <- corpus_tidy %>%
 
 
 # PROBÉ UN MONTÓN DE ALTERNATIVAS, PERO EL CÓDIGO DE LA LEMATIZACIÓN SIGUE SIN FUNCIONAR (FIJATE QUE EL ELEMENTO CORPUS_TIDY_LEMM DUPLICA LAS MIMAS PALABRAS EN LA ÚLTIMA COLUMNA). ENTIENDO QUE PUEDE SER UN TEMA DEL DICCIONARIO QUE SE USA, PERO CON OTRAS OPCIONES TAMPOCO ME FUNCIONA
-corpus_tidy_lemm <- corpus_tidy_lemm %>%
+corpus_tidy_lemm <- corpus_tidy %>%
   mutate(word_lemmatized = lemmatize_words(word, language = "es"))
 ```
 
 ### Exploración palabras más frecuentes
 ```{r}
 corpus_tidy %>%
-        group_by(word) %>%
+        group_by(word, medio) %>%
         summarise(n=n()) %>%
         arrange(desc(n))
 
@@ -109,17 +111,43 @@ corpus_tidy %>%
 
 ```
 
-### Matriz
+## Etapa 2: consignas
+
+¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta
+
+### Term Frequency: 20 palabras más usadas por cada medio vs. 20 palabras generales
 ```{r}
 word_counts <- corpus_tidy %>%
-        group_by(id, word) %>%
+        group_by(medio, word) %>%
         summarise(n=n()) %>%
         ungroup()
-word_counts
 
+word_counts_all <- corpus_tidy %>%
+        group_by(word) %>%
+        summarise(n=n()) %>%
+        slice_max(n, n = 20) %>% 
+        ungroup() %>% 
+        mutate(medio = 'general')
+
+word_counts_all %>% 
+  bind_rows(word_counts) %>% 
+  group_by(medio) %>% 
+  slice_max(n, n = 20) %>% 
+   mutate(word = fct_reorder(word, n)) %>% 
+  ggplot(aes(word, n))+
+  geom_col()+
+  coord_flip()+
+  facet_wrap(~medio, scales = "free_y")
+  
+ 
+ 
 # En este paso el código calcula el recuento de ocurrencias de cada palabra en el corpus de texto, agrupado por el identificador único de cada documento, y almacena estos recuentos en un nuevo dataframe llamado "word_counts". La utilidad radica en la posibilidad de analizar la frecuencia de palabras en cada documento individualmente.
 ```
+```{r}
+```
 
+
+### TF-IDF
 ```{r}
 disc_dtm <- word_counts %>%
                 cast_dtm(id, word, n)
@@ -129,9 +157,7 @@ disc_dtm
 # Este código considera los recuentos de ocurrencias de palabras en cada documento almacenados en el dataframe "word_counts" y los convierte en una matriz dispersa de términos del documento (DTM) llamada "disc_dtm". Esto es útil para el análisis de texto, donde se puede utilizar la matriz DTM como entrada para diversos modelos de aprendizaje automático o análisis de texto.
 ```
 
-## Etapa 2: consignas
 
-¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta
 
 ¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar diferencias en cada uno de los medios? Explicar qué método se utilizó para responder la pregunta, cuáles son los supuestos del mismo. Generar las visualizaciones más adecuadas para responder a las preguntas
 
