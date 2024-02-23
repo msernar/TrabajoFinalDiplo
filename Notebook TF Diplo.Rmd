@@ -4,7 +4,7 @@ output: html_notebook
 editor_options: 
   markdown: 
     wrap: 72
----
+--- 
 
 ## Carga de librerías a utilizar
 
@@ -16,7 +16,7 @@ library(textstem)
 library(patchwork)
 
 ```
-
+algo 
 ## Etapa 1: cargar de datos y preprocesamiento
 
 El archivo que se adjunta consiste en un corpus de unas 7.000 noticias
