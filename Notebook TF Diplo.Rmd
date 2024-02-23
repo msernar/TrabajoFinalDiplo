@@ -14,12 +14,8 @@ library(tidytext)
 library(tm)
 library(textstem)
 library(patchwork)
-
+library(wordcloud)
 ```
-
-a ver qué pasa ahora
-parece que anda
-festejamos?
 
 ## Etapa 1: cargar de datos y preprocesamiento
 
@@ -119,12 +115,17 @@ corpus_tidy %>%
 
 ¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta
 
-### Term Frequency: 20 palabras más usadas por cada medio vs. 20 palabras generales
+### Term Frequency - TF: 20 palabras más usadas por cada medio vs. 20 palabras generales
 ```{r}
+# La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
+# Los siguientes códigos generan una visualización de las palabras más comunes en el corpus, desglosadas por medio y en general. Las palabras más comunes se muestran en orden descendente de frecuencia en cada categoría.
+
 word_counts <- corpus_tidy %>%
         group_by(medio, word) %>%
         summarise(n=n()) %>%
         ungroup()
+
+# En este paso calculamos el recuento de ocurrencias de cada palabra en el corpus, agrupadas por la columna "medio", y almacena estos recuentos en un nuevo dataframe llamado "word_counts".  
 
 word_counts_all <- corpus_tidy %>%
         group_by(word) %>%
@@ -132,6 +133,8 @@ word_counts_all <- corpus_tidy %>%
         slice_max(n, n = 20) %>% 
         ungroup() %>% 
         mutate(medio = 'general')
+
+# Aquí calculamos el recuento de ocurrencias de cada palabra en el corpus, sin agrupar por medio. Luego, seleccionamos las 20 palabras más comunes en todo el corpus. A estos resultados les agregamos la etiqueta "general" en la columna "medio".
 
 word_counts_all %>% 
   bind_rows(word_counts) %>% 
@@ -143,25 +146,41 @@ word_counts_all %>%
   coord_flip()+
   facet_wrap(~medio, scales = "free_y")
   
- 
- 
-# En este paso el código calcula el recuento de ocurrencias de cada palabra en el corpus de texto, agrupado por el identificador único de cada documento, y almacena estos recuentos en un nuevo dataframe llamado "word_counts". La utilidad radica en la posibilidad de analizar la frecuencia de palabras en cada documento individualmente.
-```
-```{r}
+# Este código crea un gráfico de barras usando ggplot para visualizar las 20 palabras más comunes para cada medio y las 20 palabras más comunes en general. El eje x muestra las palabras y el eje y muestra la frecuencia de cada palabra. El gráfico está segmentado en paneles por cada medio, y las escalas del eje y se ajustan para cada panel individual. 
 ```
 
-
-### TF-IDF
+### Term Frequency - Inverse Document Frequency (TF-IDF)
 ```{r}
+# TF-IDF evalúa la importancia de una palabra en un documento dentro de un corpus más grande, considerando tanto la frecuencia de aparición de una palabra en un documento (TF) como la rareza de la palabra en el conjunto de documentos (IDF).
+# La idea principal de esta métrica es que si una palabra aparece con frecuencia en un documento, pero también es rara en otros documentos, es probable que sea más relevante para ese documento en particular.
+
 disc_dtm <- word_counts %>%
-                cast_dtm(id, word, n)
+                cast_dtm(medio, word, n)
 
 disc_dtm
 
-# Este código considera los recuentos de ocurrencias de palabras en cada documento almacenados en el dataframe "word_counts" y los convierte en una matriz dispersa de términos del documento (DTM) llamada "disc_dtm". Esto es útil para el análisis de texto, donde se puede utilizar la matriz DTM como entrada para diversos modelos de aprendizaje automático o análisis de texto.
+# Como resultado se muestra una matriz de términos y documentos (DTM) con 8 documentos y 100.024 términos únicos (palabras) totales en el corpus. La DTM muestra entonces que existe una amplia variedad de términos únicos/ distintos en el corpus que expresaría una diversidad de vocabulario.
+
+# Non-/sparse entries indica que de un total de 541.307 "entradas" posibles en la matriz (que es el número total de celdas), 258.885 tienen un valor distinto de cero, mientras que 541.307 - 258.885 = 282.422 "entradas" son cero.
+
+# Sparsity indica la proporción de entradas que son cero en la matriz (cuanto mayor sea el valor de la sparsity, más dispersos son los datos). En nuestro caso, la sparsity significa que aproximadamente el 68% de las entradas en la matriz son cero. Este resultado indica que la matriz es bastante dispersa o "sparse", esto es, que hay muchas palabras que no aparecen en muchos documentos del corpus.
+# NOTA: una alta sparsity puede presentar desafíos al analizar los datos. Por ejemplo, si estuviésemos buscando patrones de co-ocurrencia entre términos o realizando clustering de documentos, la alta sparsity puede hacer que sea más difícil encontrar relaciones significativas entre los términos y documentos.
+
+# Maximal term length: Indica la longitud máxima de los términos (palabras) en el corpus. En nuestro caso es NA.
+
+# Weighting muestra que el método utilizado para asignar un peso a cada término en la matriz es la term frequency - tf, lo que significa que el valor en cada celda de la matriz representa el número de veces que un término aparece en un documento específico.
+
+
+term_freq_transposed <- word_counts_all
+
+top_terms <- head(term_freq_transposed, 20)
+
+set.seed(123)
+
+wordcloud(words = top_terms$word, freq = as.numeric(top_terms$n), 
+          min.freq = 5, scale = c(6, 0.5), random.order = FALSE, 
+          colors = brewer.pal(8, "Dark2"), max.words = 150)
 ```
-
-
 
 ¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar diferencias en cada uno de los medios? Explicar qué método se utilizó para responder la pregunta, cuáles son los supuestos del mismo. Generar las visualizaciones más adecuadas para responder a las preguntas
 
