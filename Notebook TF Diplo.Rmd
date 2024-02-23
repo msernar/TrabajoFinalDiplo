@@ -16,7 +16,9 @@ library(textstem)
 library(patchwork)
 
 ```
-algo 
+
+a ver qué pasa ahora
+
 ## Etapa 1: cargar de datos y preprocesamiento
 
 El archivo que se adjunta consiste en un corpus de unas 7.000 noticias
