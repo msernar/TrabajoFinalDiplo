@@ -4,20 +4,20 @@ output: html_notebook
 editor_options: 
   markdown: 
     wrap: 72
---- 
+---
 
 ## Carga de librerías a utilizar
 
-```{r}
+```{r library}
 library(tidyverse)
 library(tidytext)
 library(tm)
 library(textstem)
 library(patchwork)
-library(wordcloud)
+library(wordcloud) 
 ```
 
-## Etapa 1: cargar de datos y preprocesamiento
+## Etapa 1: carga de datos y preprocesamiento
 
 El archivo que se adjunta consiste en un corpus de unas 7.000 noticias
 scrapeadas entre julio y septiembre de 2019 de los siguientes medios de
@@ -31,24 +31,53 @@ aplicado al estudio de tópicos de noticias de seguridad en Argentina:
 julio a septiembre 2019”. Una exposición más concentrada de sus
 resultados puede encontrarse en el siguiente artículo.
 
-El corpus contiene, las siguientes variables: 
-id : identificador de cada documento 
-url : link a la noticia original 
+El corpus contiene, las siguientes variables:
+
+id : identificador de cada documento
+
+url : link a la noticia original
+
 fecha : fecha de publicación
-anio : año de publicación 
-mes : mes de publicación 
-dia : dia de publicación 
-medio : medio en el que fue publicado 
-orientacion: clasificación -provisoria- de los medios según su línea editorial predominante (más conservador, más progresista, neutral) titulo 
+
+anio : año de publicación
+
+mes : mes de publicación
+
+dia : dia de publicación
+
+medio : medio en el que fue publicado
+
+orientacion: clasificación -provisoria- de los medios según su línea
+editorial predominante (más conservador, más progresista, neutral)
+
+titulo
+
 texto
 
 ### Carga dataset
-```{r}
+
+```{r readcsv}
 corpus_base <- read_csv("M5_corpus_medios.csv")
 ```
 
+```{r analisis_base}
+# En este apartado vemos cuantas noticias aporta cada medio al corpus y calculamos la proporción sobre el total
+
+    corpus_base %>%
+        group_by(medio) %>%
+        summarise(n=n()) %>%
+        mutate(
+                total = sum(n),
+                prop = n/total*100
+                ) %>%
+        ungroup() %>%
+        select(medio, n, prop) %>% 
+        arrange(desc(n))
+```
+
 ### Normalización y tokenización
-```{r}
+
+```{r tokens}
 corpus_tidy <- corpus_base %>% 
     mutate(texto= stringi::stri_trans_general(texto, "Latin-ASCII"),
          titulo = stringi::stri_trans_general(titulo, "Latin-ASCII")) %>% 
@@ -59,7 +88,8 @@ corpus_tidy <- corpus_base %>%
 ```
 
 ### Eliminar stopwords
-```{r}
+
+```{r stopwords}
 stop_words_1 <- read_csv('https://raw.githubusercontent.com/Alir3z4/stop-words/master/spanish.txt', col_names=FALSE) %>%
         rename(word = X1) %>%
         mutate(word = stringi::stri_trans_general(word, "Latin-ASCII"))
@@ -74,7 +104,8 @@ stop_words_2 <- read_csv("z_stopwords.txt", col_names = FALSE) %>%
 
 stop_words_full <- stop_words_1 %>% 
   bind_rows(stop_words_2) %>% 
-  distinct()
+  distinct() %>% 
+  bind_rows(tibble(word = c('embed')))
 
 # En este paso combinamos los dos dataframes de stopwords, eliminamos las filas duplicadas y guardamos el resultado en un nuevo dataframe llamado "stop_words_full". Este dataframe contiene la lista completa y única de stopwords normalizadas.
 
@@ -82,15 +113,54 @@ corpus_tidy <- corpus_tidy %>%
   anti_join(stop_words_full)
 
 # En este código eliminamos las stopwords del corpus de texto "corpus_tidy" utilizando la lista de stopwords contenida en el dataframe "stop_words_full". Este paso en el procesamiento de texto es necesario para eliminar palabras que no aportan significado para el análisis posterior.
+```
 
+*Nota -\> en el archivo de stopwords agregué la palabra "embed" porque
+vi que aparecía en el top10 de minutouno y debe referir a algo de la
+página web. Si ves alguna otra palabra para quitar, la agregamos en esa
+línea de "tibble"*
 
+### Corrección "años" 
+
+*Nota –\> Agus acá pensé que como la palabra año/años aparece mucho y no
+pudimos lematizar, la juntemos en una sola. Ahora se me ocurre que
+podríamos eliminar esta palabra como stopword, porque qué aporta?
+aparece mucho probablemente hablando de fechas. Que opinás?*
+
+```{r corpus_tidy}
+corpus_tidy <- corpus_tidy %>% 
+  mutate(word = case_when(
+    word == 'ano' ~ 'anio',
+    word == 'anos' ~ 'anio',
+    TRUE ~ word
+  ))
+```
+
+*Nota –\> Probé y tampoco logré que funcione la lematización. Volvería
+sobre este punto más adelante*
+
+```{r}
 # PROBÉ UN MONTÓN DE ALTERNATIVAS, PERO EL CÓDIGO DE LA LEMATIZACIÓN SIGUE SIN FUNCIONAR (FIJATE QUE EL ELEMENTO CORPUS_TIDY_LEMM DUPLICA LAS MIMAS PALABRAS EN LA ÚLTIMA COLUMNA). ENTIENDO QUE PUEDE SER UN TEMA DEL DICCIONARIO QUE SE USA, PERO CON OTRAS OPCIONES TAMPOCO ME FUNCIONA
 corpus_tidy_lemm <- corpus_tidy %>%
   mutate(word_lemmatized = lemmatize_words(word, language = "es"))
+
+
+
+corpus_tidy_lemm %>% 
+  filter(word != word_lemmatized) %>% 
+  select(word, word_lemmatized)
 ```
 
+## Etapa 2: Consignas
+
+¿Cuáles son las palabras más utilizadas en cada uno de los medios?
+¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas
+trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones
+que considere más pertinentes para responder la pregunta
+
 ### Exploración palabras más frecuentes
-```{r}
+
+```{r explore_freqs}
 corpus_tidy %>%
         group_by(word, medio) %>%
         summarise(n=n()) %>%
@@ -98,8 +168,15 @@ corpus_tidy %>%
 
 # Mediante este código agrupamos las palabras únicas en el corpus, contamos el número de ocurrencias de cada palabra y las ordenamos en función de su frecuencia de aparición, mostrando primero las palabras más frecuentes.
 
-```
-```{r}
+corpus_tidy %>%
+  filter(medio == 'infobae')  %>% 
+  group_by(word) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+        
+
+# Mirada rápida a las palabras más frecuentes de algunos medios
+
 corpus_tidy %>%
         group_by(medio, word) %>%
         summarise(n=n()) %>%
@@ -111,45 +188,144 @@ corpus_tidy %>%
 
 ```
 
-## Etapa 2: consignas
-
-¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta
-
-### Term Frequency - TF: 20 palabras más usadas por cada medio vs. 20 palabras generales
-```{r}
-# La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
-# Los siguientes códigos generan una visualización de las palabras más comunes en el corpus, desglosadas por medio y en general. Las palabras más comunes se muestran en orden descendente de frecuencia en cada categoría.
-
-word_counts <- corpus_tidy %>%
+```{r word_counts}
+word_counts_10 <- corpus_tidy %>%
         group_by(medio, word) %>%
         summarise(n=n()) %>%
+        slice_max(n, n = 10) %>% 
         ungroup()
 
-# En este paso calculamos el recuento de ocurrencias de cada palabra en el corpus, agrupadas por la columna "medio", y almacena estos recuentos en un nuevo dataframe llamado "word_counts".  
+# En este paso calculamos el recuento de ocurrencias de cada palabra en el corpus, agrupadas por la columna "medio", y almacena estos recuentos en un nuevo dataframe llamado "word_counts" para pasarle a la función de graficado
 
-word_counts_all <- corpus_tidy %>%
+word_counts_all_10 <- corpus_tidy %>%
         group_by(word) %>%
         summarise(n=n()) %>%
-        slice_max(n, n = 20) %>% 
+        slice_max(n, n = 10) %>% 
         ungroup() %>% 
         mutate(medio = 'general')
 
-# Aquí calculamos el recuento de ocurrencias de cada palabra en el corpus, sin agrupar por medio. Luego, seleccionamos las 20 palabras más comunes en todo el corpus. A estos resultados les agregamos la etiqueta "general" en la columna "medio".
+# Aquí calculamos el recuento de ocurrencias de cada palabra en el corpus, sin agrupar por medio. Luego, seleccionamos las 10 palabras más comunes en todo el corpus. A estos resultados les agregamos la etiqueta "general" en la columna "medio" para poder comparar visualmente la distribución general con la distribución por medio
 
-word_counts_all %>% 
-  bind_rows(word_counts) %>% 
-  group_by(medio) %>% 
-  slice_max(n, n = 20) %>% 
-   mutate(word = fct_reorder(word, n)) %>% 
-  ggplot(aes(word, n))+
-  geom_col()+
-  coord_flip()+
-  facet_wrap(~medio, scales = "free_y")
-  
-# Este código crea un gráfico de barras usando ggplot para visualizar las 20 palabras más comunes para cada medio y las 20 palabras más comunes en general. El eje x muestra las palabras y el eje y muestra la frecuencia de cada palabra. El gráfico está segmentado en paneles por cada medio, y las escalas del eje y se ajustan para cada panel individual. 
+word_counts_top_10 <- word_counts_10 %>% 
+  bind_rows(word_counts_all_10)
+
+# Unifico en un dataset
 ```
 
+*Nota -\> me acordé de haber visto en alguna clase una función para
+crear varios gráficos de una. Con ayuda del chat llegué a esto, en la
+parte de "grafico" con el código de ggplot podemos jugar con los colores
+y demás cuestiones de formato*
+
+```{r crear_viz}
+crear_graf_word_freq <- function(data) {
+  medios <- unique(data$medio)
+  graficos <- list()
+  
+  for (medio_actual in medios) {
+    datos_medio <- data %>%
+      filter(medio == medio_actual) %>%
+      mutate(word = fct_reorder(word, n))
+    
+    grafico <- ggplot(datos_medio, aes(n, word)) +
+                geom_col() +
+                geom_text(aes(label = n), position = position_stack(vjust = 0.5), family = "Courier", color = "white") +
+                labs(title = medio_actual,
+                     x = "Frecuencia",
+                     y = "Palabra") +
+                theme_classic()+
+                theme(plot.title = element_text(hjust= 0.5),
+                      axis.title = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      text = element_text(family = "Courier"))
+    
+    graficos[[medio_actual]] <- grafico
+  }
+  
+  wrap_plots(graficos)
+}
+
+# Esta función crea para cada medio un gráfico con el top 10 de palabras más frecuentes
+
+```
+
+El eje x muestra las palabras y el eje y muestra la frecuencia de cada
+palabra. El gráfico está segmentado en paneles por cada medio, y las
+escalas del eje y se ajustan para cada panel individual.
+
+```{r viz}
+crear_graf_word_freq(word_counts_top_10)
+
+# Este código genera una visualización de las palabras más comunes en el corpus, desglosadas por medio y en general. Las palabras más comunes se muestran en orden descendente de frecuencia en cada categoría.
+
+
+```
+
+Algunas ideas hasta acá:
+
+-   Clarín e Infobae aportan cada uno el 22% de las noticias al corpus.
+    El peso de las palabras más importantes para estos medios en el
+    ranking general es alto.
+
+-   Año parece una stopword
+
+-   Cronica, LN e Infobae son los únicos que no incluyen nombres propios
+    entre las palabras más frecuentes
+
+-   En LN hay muchas referencias a redes sociales y acciones en ellas
+    (guardar, compartir). Creo que las acciones y "fuente" podrían ser
+    stopwords. Incluso las menciones a RRSS podrían ser producto del
+    scrapping y no del contenido de las notas
+
+-   Macri el político más nombrado
+
+-   Crónica e Infobae parecen cubrir temas más generales que los demás,
+    aunque tienen el top 10 "gobierno" y "presidente"
+
+### Term Frequency - TF: 
+
+*Nota -\> Creo que toda esta parte se puede hacer más fácil sacando
+directamente el tf después de usar la función bind_tf_idf, pero así lo
+habíamos hecho en clase y queda calculado manualmente. Podemos ver si
+dejarlo o no.*
+
+```{r tf}
+# La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
+
+words_tidy <- corpus_tidy %>% 
+  group_by(medio, word) %>%
+  summarise(n=n()) %>% 
+  arrange(desc(n)) 
+
+total_words <- words_tidy %>%
+        group_by(medio) %>%
+        summarize(total = sum(n)) 
+
+words_tidy <- words_tidy %>% 
+  left_join(total_words) %>% 
+  ungroup() %>% 
+  arrange(desc(n))
+
+# En este código contamos la frecuencia de cada palabra en el corpus del medio y también el total de palabras en el medio. Con estos datos podemos calcular a continuación la importancia de cada término en el medio
+```
+
+```{r tf_viz}
+words_tidy %>% mutate(tf = n/total) %>%
+        ggplot(aes(tf, fill = medio)) +
+                geom_histogram(show.legend = FALSE) +
+                coord_flip()+
+                xlim(NA, 0.0002) +
+                facet_wrap(~medio) +
+                theme_minimal()
+```
+
+Vemos que para los medios más masivos se cumple la Ley de Zipf: pocas
+palabras ocurren muchas veces. Los corpus de Crónica, Minuto Uno y Télam
+tienen menos términos que los demás y la tf tiene un rango menor (uso de
+palabras mejor distribuido).
+
 ### Term Frequency - Inverse Document Frequency (TF-IDF)
+
 ```{r}
 # TF-IDF evalúa la importancia de una palabra en un documento dentro de un corpus más grande, considerando tanto la frecuencia de aparición de una palabra en un documento (TF) como la rareza de la palabra en el conjunto de documentos (IDF).
 # La idea principal de esta métrica es que si una palabra aparece con frecuencia en un documento, pero también es rara en otros documentos, es probable que sea más relevante para ese documento en particular.
@@ -182,6 +358,68 @@ wordcloud(words = top_terms$word, freq = as.numeric(top_terms$n),
           colors = brewer.pal(8, "Dark2"), max.words = 150)
 ```
 
-¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar diferencias en cada uno de los medios? Explicar qué método se utilizó para responder la pregunta, cuáles son los supuestos del mismo. Generar las visualizaciones más adecuadas para responder a las preguntas
+```{r tf_idf}
+tf_idf <- words_tidy %>% 
+  bind_tf_idf(word, medio, n)
 
-A continuación, seleccionar las noticias vinculadas a algún tópico relevante (por ejemplo, “Elecciones”) y construir un clasificador para predecir la orientación del diario. Utilizar alguno de los modelos de clasificación vistos a lo largo de al Diplomatura (regresión logística, random forest, etc.). Utilizar como features el “Spanish Billion Word Corpus and Embeddings”, analizado en clase (pueden descargar el embedding en formato .bin del link). ¿Qué resultados arroja el modelo? ¿Es posible mediante el texto de las noticias conocer la línea editorial del diario? Generar las visualizaciones y tablas correspondientes para una correcta evaluación del modelo.
+tf_idf %>% select(-total) %>% 
+  arrange(desc(tf_idf))
+
+# En este código calculamos las métricas tf, idf y tf_idf para todos los términos del corpus
+```
+
+```{r tf_idf_viz}
+tf_idf %>% 
+  group_by(medio) %>% 
+   slice_max(tf_idf, n = 10) %>%
+        ungroup() %>%
+        ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = medio)) +
+        geom_col(show.legend = FALSE) +
+        facet_wrap(~medio, ncol = 2, scales = "free") +
+        labs(x = "tf-idf", y = NULL) +
+        theme_minimal()
+
+# Acá graficamos los términos más importantes e informativos para cada medio
+```
+
+Análisis de TF-IDF:
+
+-   Lo primero que identifico es la necesidad de agregar palabras al
+    listado de stopwords, porque no dicen nada sobre el
+    contenido/orientación de las noticias y a su vez son únicos para
+    algunos medios y eso genera un alto tf_idf
+
+    Ejemplos: jpe, ap, emj, cronica.com.ar, fvazquez, cronicavirales,
+    hd, pemex, gt, afv, jpg, minutouno.com, ambito.com, ivanovich,
+    loading, paginai, protected, lxs, email, r.c,cp, fel,l.l,d.s, ea,
+    f.f, f.d.s, fh, a.g, pct, telam.la, nacional.el
+
+-   Podemos identificar "firmas" periodistas (nombres de usuario o
+    siglas) para quitarlas del análisis de contenido
+
+*Nota -\> Creo que en función de esta primera corrida de tf_idf
+tendríamos que alargar el listado de stopwords para llegar a resultados
+más limpios sobre los contenidos de cada medio, antes de intentar
+identificar tópicos. Quizás podemos hacerlo dejando "guardado" todo lo
+que hicimos hasta ahora para dar cuenta de este análisis, y mostrar el
+resultado después d etoda esta "limpieza". Si estás de acuerdo avanzamos
+así, engrosando stopwords pero conservando lo hecho hasta ahora, sin
+pisar nada.*
+
+----------------------------------------------------------------------
+
+¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar
+diferencias en cada uno de los medios? Explicar qué método se utilizó
+para responder la pregunta, cuáles son los supuestos del mismo. Generar
+las visualizaciones más adecuadas para responder a las preguntas
+
+A continuación, seleccionar las noticias vinculadas a algún tópico
+relevante (por ejemplo, “Elecciones”) y construir un clasificador para
+predecir la orientación del diario. Utilizar alguno de los modelos de
+clasificación vistos a lo largo de al Diplomatura (regresión logística,
+random forest, etc.). Utilizar como features el “Spanish Billion Word
+Corpus and Embeddings”, analizado en clase (pueden descargar el
+embedding en formato .bin del link). ¿Qué resultados arroja el modelo?
+¿Es posible mediante el texto de las noticias conocer la línea editorial
+del diario? Generar las visualizaciones y tablas correspondientes para
+una correcta evaluación del modelo.
