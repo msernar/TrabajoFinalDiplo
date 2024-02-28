@@ -104,8 +104,7 @@ stop_words_2 <- read_csv("z_stopwords.txt", col_names = FALSE) %>%
 
 stop_words_full <- stop_words_1 %>% 
   bind_rows(stop_words_2) %>% 
-  distinct() %>% 
-  bind_rows(tibble(word = c('embed')))
+  distinct()
 
 # En este paso combinamos los dos dataframes de stopwords, eliminamos las filas duplicadas y guardamos el resultado en un nuevo dataframe llamado "stop_words_full". Este dataframe contiene la lista completa y única de stopwords normalizadas.
 
@@ -115,17 +114,7 @@ corpus_tidy <- corpus_tidy %>%
 # En este código eliminamos las stopwords del corpus de texto "corpus_tidy" utilizando la lista de stopwords contenida en el dataframe "stop_words_full". Este paso en el procesamiento de texto es necesario para eliminar palabras que no aportan significado para el análisis posterior.
 ```
 
-*Nota -\> en el archivo de stopwords agregué la palabra "embed" porque
-vi que aparecía en el top10 de minutouno y debe referir a algo de la
-página web. Si ves alguna otra palabra para quitar, la agregamos en esa
-línea de "tibble"*
-
 ### Corrección "años"
-
-*Nota –\> Agus acá pensé que como la palabra año/años aparece mucho y no
-pudimos lematizar, la juntemos en una sola. Ahora se me ocurre que
-podríamos eliminar esta palabra como stopword, porque qué aporta?
-aparece mucho probablemente hablando de fechas. Que opinás?*
 
 ```{r corpus_tidy}
 corpus_tidy <- corpus_tidy %>% 
@@ -135,9 +124,6 @@ corpus_tidy <- corpus_tidy %>%
     TRUE ~ word
   ))
 ```
-
-*Nota –\> Probé y tampoco logré que funcione la lematización. Volvería
-sobre este punto más adelante*
 
 ```{r}
 # PROBÉ UN MONTÓN DE ALTERNATIVAS, PERO EL CÓDIGO DE LA LEMATIZACIÓN SIGUE SIN FUNCIONAR (FIJATE QUE EL ELEMENTO CORPUS_TIDY_LEMM DUPLICA LAS MIMAS PALABRAS EN LA ÚLTIMA COLUMNA). ENTIENDO QUE PUEDE SER UN TEMA DEL DICCIONARIO QUE SE USA, PERO CON OTRAS OPCIONES TAMPOCO ME FUNCIONA
@@ -212,11 +198,6 @@ word_counts_top_10 <- word_counts_10 %>%
 # Unifico en un dataset
 ```
 
-*Nota -\> me acordé de haber visto en alguna clase una función para
-crear varios gráficos de una. Con ayuda del chat llegué a esto, en la
-parte de "grafico" con el código de ggplot podemos jugar con los colores
-y demás cuestiones de formato*
-
 ```{r crear_viz}
 crear_graf_word_freq <- function(data) {
   medios <- unique(data$medio)
@@ -282,12 +263,15 @@ Algunas ideas hasta acá:
 -   Crónica e Infobae parecen cubrir temas más generales que los demás,
     aunque tienen el top 10 "gobierno" y "presidente"
 
+-   Qué pasa con la palabra "frente" que aparece con frecuencia en
+    varios medios? -\> validar si refiere a frente electoral o es
+    stopword
+
 ### Term Frequency - TF:
 
-*Nota -\> Creo que toda esta parte se puede hacer más fácil sacando
-directamente el tf después de usar la función bind_tf_idf, pero así lo
-habíamos hecho en clase y queda calculado manualmente. Podemos ver si
-dejarlo o no.*
+A modo de práctica generamos el cálculo de term frequency manualmente
+para visualizar a continuación la distribución de términos según su
+frecuencia respecto al total de términos, aperturado por medio.
 
 ```{r tf}
 # La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
@@ -325,6 +309,8 @@ tienen menos términos que los demás y la tf tiene un rango menor (uso de
 palabras mejor distribuido).
 
 ### Term Frequency - Inverse Document Frequency (TF-IDF)
+
+*Nota-\> esta partecita de código que sigue no estoy segura que busca*
 
 ```{r}
 # TF-IDF evalúa la importancia de una palabra en un documento dentro de un corpus más grande, considerando tanto la frecuencia de aparición de una palabra en un documento (TF) como la rareza de la palabra en el conjunto de documentos (IDF).
@@ -405,6 +391,81 @@ que hicimos hasta ahora para dar cuenta de este análisis, y mostrar el
 resultado después d etoda esta "limpieza". Si estás de acuerdo avanzamos
 así, engrosando stopwords pero conservando lo hecho hasta ahora, sin
 pisar nada.*
+
+### Ampliación stopwords
+
+El análisis realizado hasta acá nos permitió identificar numerosas
+palabras incluidas en el corpus producto del scrapping. Previo a la
+modelización para identificar tópicos creemos pertinente ampliar el
+listado de stopwords y repetir el preprocesamiento de los datos.
+
+```{r}
+tf_idf %>% select(word) %>% 
+  arrange(desc(tf_idf))
+```
+
+```{r}
+
+tf_idf %>% 
+  select(word) %>% 
+  filter(str_length(word) == 3 & !(word %in% c('san', 'mil', 'ley', 'afp', 'sur', 'fmi', 'usd', 'rio', 'gol', 'paz', 'mar', 'oro', 'red', 'luz', 'voz' , 'rol', 'sol', 'gas', 'pie', 'par', 'pro', 'via', 'onu', 'ypf', 'iva', 'afa', 'pbi', 'bar', 'cfk', 'eje', 'rey', 'atp', 'don', 'fbi', 'gay', 'psg', 'uba', 'ucr', 'ceo', 'ong', 'fed', 'ojo', 'dea', 'uva', 'cgt', 'ufi', 'app', 'gil', 'vih', 'nba', 'bbc', 'evo', 'hip', 'hop', 'fox', 'nbc', 'rap', 'adn', 'ala', 'eva', 'pan', 'zen', 'afv', 'cck', 'eco', 'oca', 'tio', 'cnn', 'cia', "dni", "uia", "fdt", "uif", "hbo", "mls", "oea", "mep", "gnc", "auh", "che", "oil", "gen", "agn",	"fpv", "lam",	"pib", "cne","duo", "vox", "dow", "uca", "dnu", "pez", "pfa", "pdt", "fda", "fci", "oms", "psa", "feo", "cta", "ego",				
+"faa",	"ute", "ate",	"lio", "fpt", "suv", "gba",	"izq", "aro", "smn", "tnt",	"uco", "ipc", "saa", "tmz", "ccl", "gel", "vip", "esi",	"res", "kun", "tsj", "afi",	"pts", "cnh", "ajo", "acv", "bmw", "bus", "gps", "ile",	"ios", "unc",	"zoo", "jup", "tos", "unl",	"upl", "zeo", "ave", "mte", "mpn", "apn", "mao", "pba", "sms", "cnv", "mdz", "fol", "iso"))) %>% 
+  pull(word)
+
+tf_idf %>%
+  filter(str_length(word) == 3) %>% select(word) %>% distinct()
+```
+
+```{r stopwords_v2}
+#elimino palabras que incluyen puntos y parecen producto de scrapping web
+nuevas_stopwords_1 <- tf_idf %>% 
+  select(word) %>% 
+  filter(grepl('\\.', word)) %>% 
+  pull(word)
+
+#elimino palabras de dos caracteres salvo contadas excepciones que tienen sentido
+nuevas_stopwords_2 <- tf_idf %>% 
+  select(word) %>% 
+  filter(str_length(word) == 2 & !(word %in% c('pj', 'fe', 'dt', 'tv', 'km', 'cv', 'dr', 'it', 'dj', 'ux'))) %>% 
+  pull(word)
+
+#elimino palabras de tres caracteres. Parece haber más siglas y palabras cortas que tienen sentido pero dada la gran cantidad de stopwords de 3 caracteres hay motivos para incluir este paso
+nuevas_stopwords_3 <- tf_idf %>% 
+  select(word) %>% 
+  filter(str_length(word) == 3 & !(word %in% c('san', 'mil', 'ley', 'afp', 'sur', 'fmi', 'usd', 'rio', 'gol', 'paz', 'mar', 'oro', 'red', 'luz', 'voz' , 'rol', 'sol', 'gas', 'pie', 'par', 'pro', 'via', 'onu', 'ypf', 'iva', 'afa', 'pbi', 'bar', 'cfk', 'eje', 'rey', 'atp', 'don', 'fbi', 'gay', 'psg', 'uba', 'ucr', 'ceo', 'ong', 'fed', 'ojo', 'dea', 'uva', 'cgt', 'ufi', 'app', 'gil', 'vih', 'nba', 'bbc', 'evo', 'hip', 'hop', 'fox', 'nbc', 'rap', 'adn', 'ala', 'eva', 'pan', 'zen', 'afv', 'cck', 'eco', 'oca', 'tio', 'cnn', 'cia', "dni", "uia", "fdt", "uif", "hbo", "mls", "oea", "mep", "gnc", "auh", "che", "oil", "gen", "agn",	"fpv", "lam",	"pib", "cne","duo", "vox", "dow", "uca", "dnu", "pez", "pfa", "pdt", "fda", "fci", "oms", "psa", "feo", "cta", "ego",				
+"faa",	"ute", "ate",	"lio", "fpt", "suv", "gba",	"izq", "aro", "smn", "tnt",	"uco", "ipc", "saa", "tmz", "ccl", "gel", "vip", "esi",	"res", "kun", "tsj", "afi",	"pts", "cnh", "ajo", "acv", "bmw", "bus", "gps", "ile",	"ios", "unc",	"zoo", "jup", "tos", "unl",	"upl", "zeo", "ave", "mte", "mpn", "apn", "mao", "pba", "sms", "cnv", "mdz", "fol", "iso"))) %>% 
+  pull(word)
+
+nuevas_stopwords <- data.frame(word = nuevas_stopwords_1) %>% 
+  bind_rows(data.frame(word = nuevas_stopwords_2)) %>% 
+  bind_rows(data.frame(word = nuevas_stopwords_3))
+
+stop_words_full_v2 <- stop_words_full %>% 
+  bind_rows(tibble(word = c('embed', 'anio', 'gusta', 'twitter', 'facebook', 'comentar', 'fuente', 'whatsapp', 'guardar', 'compartir', 'mail', 'loading', 'email', 'paginai', 'eltrece', 'infobae' ))) %>% 
+  bind_rows(nuevas_stopwords)
+```
+
+```{r corpus_tidy_v2}
+corpus_tidy_v2 <- corpus_tidy %>% 
+  anti_join(stop_words_full_v2)
+```
+
+```{r}
+words_tidy_v2 <- corpus_tidy_v2 %>% 
+  group_by(medio, word) %>%
+  summarise(n=n())
+
+```
+
+```{r}
+tf_idf_v2 <- words_tidy_v2 %>% 
+  bind_tf_idf(word, medio, n)
+
+tf_idf_v2 %>% 
+  arrange(desc(tf_idf)) %>% 
+  select(word) %>% 
+  distinct()
+```
 
 ------------------------------------------------------------------------
 
