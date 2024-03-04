@@ -15,6 +15,9 @@ library(tm)
 library(textstem)
 library(patchwork)
 library(wordcloud) 
+library(plotly)
+library(topicmodels)
+library(tictoc)
 ```
 
 ## Etapa 1: carga de datos y preprocesamiento
@@ -31,7 +34,7 @@ aplicado al estudio de tópicos de noticias de seguridad en Argentina:
 julio a septiembre 2019”. Una exposición más concentrada de sus
 resultados puede encontrarse en el siguiente artículo.
 
-El corpus contiene, las siguientes variables:
+El corpus contiene las siguientes variables:
 
 id : identificador de cada documento
 
@@ -142,9 +145,12 @@ corpus_tidy_lemm %>%
 ¿Cuáles son las palabras más utilizadas en cada uno de los medios?
 ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas
 trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones
-que considere más pertinentes para responder la pregunta
+que considere más pertinentes para responder la pregunta.
 
 ### Exploración palabras más frecuentes
+
+Comenzamos explorando el corpus en formato tidy para identificar
+rápidamente algunos de los términos más frecuentes por medio.
 
 ```{r explore_freqs}
 corpus_tidy %>%
@@ -198,8 +204,11 @@ word_counts_top_10 <- word_counts_10 %>%
 # Unifico en un dataset
 ```
 
+A continuación creamos una función para automatizar todas las
+visualizaciones relacionadas a las métricas del corpus.
+
 ```{r crear_viz}
-crear_graf_word_freq <- function(data) {
+crear_graf_words <- function(data) {
   medios <- unique(data$medio)
   graficos <- list()
   
@@ -226,7 +235,7 @@ crear_graf_word_freq <- function(data) {
   wrap_plots(graficos)
 }
 
-# Esta función crea para cada medio un gráfico con el top 10 de palabras más frecuentes
+# Esta función crea para cada medio un gráfico con el top 10 de palabras según cada métrica analizada
 
 ```
 
@@ -235,37 +244,36 @@ palabra. El gráfico está segmentado en paneles por cada medio, y las
 escalas del eje y se ajustan para cada panel individual.
 
 ```{r viz}
-crear_graf_word_freq(word_counts_top_10)
+crear_graf_words(word_counts_top_10)
 
 # Este código genera una visualización de las palabras más comunes en el corpus, desglosadas por medio y en general. Las palabras más comunes se muestran en orden descendente de frecuencia en cada categoría.
 
 
 ```
 
-Algunas ideas hasta acá:
+Algunas observaciones preliminares:
 
 -   Clarín e Infobae aportan cada uno el 22% de las noticias al corpus.
     El peso de las palabras más importantes para estos medios en el
     ranking general es alto.
 
--   Año parece una stopword
+-   Año parece una stopword.
 
 -   Cronica, LN e Infobae son los únicos que no incluyen nombres propios
-    entre las palabras más frecuentes
+    entre las palabras más frecuentes.
 
 -   En LN hay muchas referencias a redes sociales y acciones en ellas
-    (guardar, compartir). Creo que las acciones y "fuente" podrían ser
-    stopwords. Incluso las menciones a RRSS podrían ser producto del
-    scrapping y no del contenido de las notas
+    (guardar, compartir). Las acciones y "fuente" podrían ser stopwords.
+    Incluso las menciones a RRSS podrían ser producto del scrapping y no
+    del contenido de las notas.
 
--   Macri el político más nombrado
+-   Macri aparece como el político más nombrado.
 
 -   Crónica e Infobae parecen cubrir temas más generales que los demás,
-    aunque tienen el top 10 "gobierno" y "presidente"
+    aunque tienen en el top 10 "gobierno" y "presidente".
 
--   Qué pasa con la palabra "frente" que aparece con frecuencia en
-    varios medios? -\> validar si refiere a frente electoral o es
-    stopword
+-   La palabra "frente" aparece con frecuencia en varios medios, lo que
+    nos inclina a validar si refiere a frentes electorales o no.
 
 ### Term Frequency - TF:
 
@@ -273,7 +281,7 @@ A modo de práctica generamos el cálculo de term frequency manualmente
 para visualizar a continuación la distribución de términos según su
 frecuencia respecto al total de términos, aperturado por medio.
 
-```{r tf}
+```{r tf_manual}
 # La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
 
 words_tidy <- corpus_tidy %>% 
@@ -293,14 +301,27 @@ words_tidy <- words_tidy %>%
 # En este código contamos la frecuencia de cada palabra en el corpus del medio y también el total de palabras en el medio. Con estos datos podemos calcular a continuación la importancia de cada término en el medio
 ```
 
-```{r tf_viz}
-words_tidy %>% mutate(tf = n/total) %>%
-        ggplot(aes(tf, fill = medio)) +
+En esta visualización podemos interactuar para identificar la cantidad
+de términos por tf:
+
+*Idea–\> agregar dato de términos totales por medio para comprender qué
+peso tiene cada línea de tf/count de términos en cada corpus.*
+
+```{r tf_viz_manual}
+tf_viz <- words_tidy %>% mutate(tf = n/total) %>%
+          ggplot(aes(tf)) +
                 geom_histogram(show.legend = FALSE) +
                 coord_flip()+
                 xlim(NA, 0.0002) +
                 facet_wrap(~medio) +
-                theme_minimal()
+                theme_classic()+
+                theme(plot.title = element_text(hjust= 0.5),
+                      axis.title = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      text = element_text(family = "Courier"))
+                  
+ggplotly(tf_viz)
+
 ```
 
 Vemos que para los medios más masivos se cumple la Ley de Zipf: pocas
@@ -310,39 +331,9 @@ palabras mejor distribuido).
 
 ### Term Frequency - Inverse Document Frequency (TF-IDF)
 
-*Nota-\> esta partecita de código que sigue no estoy segura que busca*
-
-```{r}
-# TF-IDF evalúa la importancia de una palabra en un documento dentro de un corpus más grande, considerando tanto la frecuencia de aparición de una palabra en un documento (TF) como la rareza de la palabra en el conjunto de documentos (IDF).
-# La idea principal de esta métrica es que si una palabra aparece con frecuencia en un documento, pero también es rara en otros documentos, es probable que sea más relevante para ese documento en particular.
-
-disc_dtm <- word_counts %>%
-                cast_dtm(medio, word, n)
-
-disc_dtm
-
-# Como resultado se muestra una matriz de términos y documentos (DTM) con 8 documentos y 100.024 términos únicos (palabras) totales en el corpus. La DTM muestra entonces que existe una amplia variedad de términos únicos/ distintos en el corpus que expresaría una diversidad de vocabulario.
-
-# Non-/sparse entries indica que de un total de 541.307 "entradas" posibles en la matriz (que es el número total de celdas), 258.885 tienen un valor distinto de cero, mientras que 541.307 - 258.885 = 282.422 "entradas" son cero.
-
-# Sparsity indica la proporción de entradas que son cero en la matriz (cuanto mayor sea el valor de la sparsity, más dispersos son los datos). En nuestro caso, la sparsity significa que aproximadamente el 68% de las entradas en la matriz son cero. Este resultado indica que la matriz es bastante dispersa o "sparse", esto es, que hay muchas palabras que no aparecen en muchos documentos del corpus.
-# NOTA: una alta sparsity puede presentar desafíos al analizar los datos. Por ejemplo, si estuviésemos buscando patrones de co-ocurrencia entre términos o realizando clustering de documentos, la alta sparsity puede hacer que sea más difícil encontrar relaciones significativas entre los términos y documentos.
-
-# Maximal term length: Indica la longitud máxima de los términos (palabras) en el corpus. En nuestro caso es NA.
-
-# Weighting muestra que el método utilizado para asignar un peso a cada término en la matriz es la term frequency - tf, lo que significa que el valor en cada celda de la matriz representa el número de veces que un término aparece en un documento específico.
-
-
-term_freq_transposed <- word_counts_all
-
-top_terms <- head(term_freq_transposed, 20)
-
-set.seed(123)
-
-wordcloud(words = top_terms$word, freq = as.numeric(top_terms$n), 
-          min.freq = 5, scale = c(6, 0.5), random.order = FALSE, 
-          colors = brewer.pal(8, "Dark2"), max.words = 150)
-```
+En esta etapa complementamos el análisis con las métricas de idf y
+tf_idf, para obtener una medida más completa de la importancia de los
+términos en el corpus de documentos.
 
 ```{r tf_idf}
 tf_idf <- words_tidy %>% 
@@ -354,67 +345,77 @@ tf_idf %>% select(-total) %>%
 # En este código calculamos las métricas tf, idf y tf_idf para todos los términos del corpus
 ```
 
-```{r tf_idf_viz}
-tf_idf %>% 
-  group_by(medio) %>% 
-   slice_max(tf_idf, n = 10) %>%
-        ungroup() %>%
-        ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = medio)) +
-        geom_col(show.legend = FALSE) +
-        facet_wrap(~medio, ncol = 2, scales = "free") +
-        labs(x = "tf-idf", y = NULL) +
-        theme_minimal()
+Creamos tres dataset, uno por métrica, con el top ten de términos para
+pasarle a la función de visualización.
 
-# Acá graficamos los términos más importantes e informativos para cada medio
+```{r top_ten_metricas}
+tf_10 <- tf_idf %>%
+        group_by(medio) %>%
+        slice_max(tf, n = 10) %>% 
+        select(medio, word, tf) %>% 
+        rename(n = tf) %>%
+        mutate(n = log(n + 1) * 100) %>% 
+        mutate(n = round(n, 4))
+
+idf_10 <- tf_idf %>%
+          group_by(medio) %>%
+          arrange(desc(idf)) %>%
+          slice_head(n = 10) %>%
+          select(medio, word, idf) %>%
+          rename(n = idf) %>%
+          mutate(n = log(n + 1) * 100) %>% 
+          mutate(n = round(n, 4))
+
+
+tf_idf_10 <- tf_idf %>%
+        group_by(medio) %>%
+        arrange(desc(idf)) %>%
+        slice_head(n = 10) %>% 
+        select(medio, word, tf_idf) %>% 
+        rename(n = tf_idf) %>%
+        mutate(n = log(n + 1) * 100) %>% 
+        mutate(n = round(n, 4))
 ```
 
-Análisis de TF-IDF:
+Pasamos cada uno de los top ten de términos por la función de graficado
+para visualizar los términos más importantes según cada métrica.
 
--   Lo primero que identifico es la necesidad de agregar palabras al
-    listado de stopwords, porque no dicen nada sobre el
-    contenido/orientación de las noticias y a su vez son únicos para
-    algunos medios y eso genera un alto tf_idf
+```{r tf_viz}
+crear_graf_words(tf_10)
+```
+
+```{r idf_viz}
+crear_graf_words(idf_10)
+```
+
+```{r tf_idf_viz}
+crear_graf_words(tf_idf_10)
+```
+
+Análisis preliminar de TF-IDF:
+
+-   En primer lugar identificamos la necesidad de agregar palabras al
+    listado de stopwords. Entendemos que no aportan información sobre el
+    contenido u orientación de las noticias y a su vez son únicos para
+    algunos medios y eso genera un alto tf_idf.
 
     Ejemplos: jpe, ap, emj, cronica.com.ar, fvazquez, cronicavirales,
     hd, pemex, gt, afv, jpg, minutouno.com, ambito.com, ivanovich,
     loading, paginai, protected, lxs, email, r.c,cp, fel,l.l,d.s, ea,
     f.f, f.d.s, fh, a.g, pct, telam.la, nacional.el
 
--   Podemos identificar "firmas" periodistas (nombres de usuario o
-    siglas) para quitarlas del análisis de contenido
+-   Podemos identificar "firmas" de periodistas (nombres de usuario o
+    siglas) que tampoco son informativas sobre el contenido del corpus.
 
-*Nota -\> Creo que en función de esta primera corrida de tf_idf
-tendríamos que alargar el listado de stopwords para llegar a resultados
-más limpios sobre los contenidos de cada medio, antes de intentar
-identificar tópicos. Quizás podemos hacerlo dejando "guardado" todo lo
-que hicimos hasta ahora para dar cuenta de este análisis, y mostrar el
-resultado después d etoda esta "limpieza". Si estás de acuerdo avanzamos
-así, engrosando stopwords pero conservando lo hecho hasta ahora, sin
-pisar nada.*
+## Etapa 1.2: Ampliación stopwords y reprocesamiento de la base
 
-### Ampliación stopwords
-
-El análisis realizado hasta acá nos permitió identificar numerosas
-palabras incluidas en el corpus producto del scrapping. Previo a la
-modelización para identificar tópicos creemos pertinente ampliar el
+El análisis realizado nos permitió encontrar numerosas palabras
+incluidas en el corpus que creemos son producto del scrapping. Previo a
+la modelización para identificar tópicos creemos pertinente ampliar el
 listado de stopwords y repetir el preprocesamiento de los datos.
 
-```{r}
-tf_idf %>% select(word) %>% 
-  arrange(desc(tf_idf))
-```
-
-```{r}
-
-tf_idf %>% 
-  select(word) %>% 
-  filter(str_length(word) == 3 & !(word %in% c('san', 'mil', 'ley', 'afp', 'sur', 'fmi', 'usd', 'rio', 'gol', 'paz', 'mar', 'oro', 'red', 'luz', 'voz' , 'rol', 'sol', 'gas', 'pie', 'par', 'pro', 'via', 'onu', 'ypf', 'iva', 'afa', 'pbi', 'bar', 'cfk', 'eje', 'rey', 'atp', 'don', 'fbi', 'gay', 'psg', 'uba', 'ucr', 'ceo', 'ong', 'fed', 'ojo', 'dea', 'uva', 'cgt', 'ufi', 'app', 'gil', 'vih', 'nba', 'bbc', 'evo', 'hip', 'hop', 'fox', 'nbc', 'rap', 'adn', 'ala', 'eva', 'pan', 'zen', 'afv', 'cck', 'eco', 'oca', 'tio', 'cnn', 'cia', "dni", "uia", "fdt", "uif", "hbo", "mls", "oea", "mep", "gnc", "auh", "che", "oil", "gen", "agn",	"fpv", "lam",	"pib", "cne","duo", "vox", "dow", "uca", "dnu", "pez", "pfa", "pdt", "fda", "fci", "oms", "psa", "feo", "cta", "ego",				
-"faa",	"ute", "ate",	"lio", "fpt", "suv", "gba",	"izq", "aro", "smn", "tnt",	"uco", "ipc", "saa", "tmz", "ccl", "gel", "vip", "esi",	"res", "kun", "tsj", "afi",	"pts", "cnh", "ajo", "acv", "bmw", "bus", "gps", "ile",	"ios", "unc",	"zoo", "jup", "tos", "unl",	"upl", "zeo", "ave", "mte", "mpn", "apn", "mao", "pba", "sms", "cnv", "mdz", "fol", "iso"))) %>% 
-  pull(word)
-
-tf_idf %>%
-  filter(str_length(word) == 3) %>% select(word) %>% distinct()
-```
+Para ampliar el listado de stopwords partimos del listado de palabras
+con sus métricas de tf e idf.
 
 ```{r stopwords_v2}
 #elimino palabras que incluyen puntos y parecen producto de scrapping web
@@ -441,23 +442,62 @@ nuevas_stopwords <- data.frame(word = nuevas_stopwords_1) %>%
   bind_rows(data.frame(word = nuevas_stopwords_3))
 
 stop_words_full_v2 <- stop_words_full %>% 
-  bind_rows(tibble(word = c('embed', 'anio', 'gusta', 'twitter', 'facebook', 'comentar', 'fuente', 'whatsapp', 'guardar', 'compartir', 'mail', 'loading', 'email', 'paginai', 'eltrece', 'infobae' ))) %>% 
+  bind_rows(tibble(word = c('embed', 'anio', 'ano', 'anos', 'gusta', 'twitter', 'facebook', 'comentar', 'fuente', 'whatsapp', 'guardar', 'compartir', 'mail', 'loading', 'email', 'paginai', 'eltrece', 'infobae' ))) %>% 
   bind_rows(nuevas_stopwords)
 ```
+
+A partir de la nueva lista de stopwords, recreamos el corpus en formato
+tidy y también el dataframe en formato medio/término/n para continuar
+con el análisis de métricas.
 
 ```{r corpus_tidy_v2}
 corpus_tidy_v2 <- corpus_tidy %>% 
   anti_join(stop_words_full_v2)
 ```
 
-```{r}
+```{r words_tidy_v2}
 words_tidy_v2 <- corpus_tidy_v2 %>% 
   group_by(medio, word) %>%
   summarise(n=n())
 
+total_words_v2 <- words_tidy_v2 %>%
+        group_by(medio) %>%
+        summarize(total = sum(n)) 
+
+words_tidy_v2 <- words_tidy_v2 %>% 
+  left_join(total_words_v2) %>% 
+  ungroup() %>% 
+  arrange(desc(n))
 ```
 
-```{r}
+### Revisión de métricas
+
+Creamos el gráfico con la distribución de términos según su tf para
+identificar variaciones respecto a la v1.
+
+```{r tf_viz_manual_v2}
+tf_viz_v2 <- words_tidy_v2 %>% mutate(tf = n/total) %>%
+          ggplot(aes(tf)) +
+                geom_histogram(show.legend = FALSE) +
+                coord_flip()+
+                xlim(NA, 0.0002) +
+                facet_wrap(~medio) +
+                theme_classic()+
+                theme(plot.title = element_text(hjust= 0.5),
+                      axis.title = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      text = element_text(family = "Courier"))
+                  
+ggplotly(tf_viz_v2)
+```
+
+*-\> falta comparar y análisis respecto a tf en v1. Comparar cuántos
+terminos caen en la tf más cercana a 0 (terminos con baja importancia en
+el corpus). A su vez, al quitar más stopwords deberíamos ver menos
+términos cayendo en las tf más altas por ser palabras random que
+aparecen pocas veces en el corpus*
+
+```{r tf_idf_v2}
 tf_idf_v2 <- words_tidy_v2 %>% 
   bind_tf_idf(word, medio, n)
 
@@ -467,12 +507,91 @@ tf_idf_v2 %>%
   distinct()
 ```
 
+Creamos los dataset necesarios para visualizar los principales términos
+por métrica y por medio, buscando diferencias respecto a la v1.
+
+```{r top_ten_metricas_v2}
+tf_10_v2 <- tf_idf_v2 %>%
+        group_by(medio) %>%
+        slice_max(tf, n = 10) %>% 
+        select(medio, word, tf) %>% 
+        rename(n = tf) %>%
+        mutate(n = log(n + 1) * 100) %>% 
+        mutate(n = round(n, 4))
+
+idf_10_v2 <- tf_idf_v2 %>%
+          group_by(medio) %>%
+          arrange(desc(idf)) %>%
+          slice_head(n = 10) %>%
+          select(medio, word, idf) %>%
+          rename(n = idf) %>%
+          mutate(n = log(n + 1) * 100) %>% 
+          mutate(n = round(n, 4))
+
+
+tf_idf_10_v2 <- tf_idf_v2 %>%
+        group_by(medio) %>%
+        arrange(desc(idf)) %>%
+        slice_head(n = 10) %>% 
+        select(medio, word, tf_idf) %>% 
+        rename(n = tf_idf) %>%
+        mutate(n = log(n + 1) * 100) %>% 
+        mutate(n = round(n, 4))
+```
+
+```{r tf_viz_v2}
+crear_graf_words(tf_10_v2)
+```
+
+```{r idf_viz_v2}
+crear_graf_words(idf_10_v2)
+```
+
+```{r tf_idf_viz_v2}
+crear_graf_words(tf_idf_10_v2)
+```
+
+Análisis final de TF-IDF:
+
+-   vvv
+
+*Comparar con análisis anterior y validar si estamos ok con los términos
+más importantes del corpus para empezar con la detección de tópicos. A
+simple vista parece que todavía podemos limpiar algunas palabras más,
+incluyendolas en el listado de stopwords ampliado.*
+
 ------------------------------------------------------------------------
+## Modelado de tópicos: LDA
 
 ¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar
 diferencias en cada uno de los medios? Explicar qué método se utilizó
 para responder la pregunta, cuáles son los supuestos del mismo. Generar
 las visualizaciones más adecuadas para responder a las preguntas
+
+Para implementar un modelado de temas con LDA necesitamos construir una matriz DTM.
+```{r dtm}
+disc_dtm <- words_tidy_v2 %>%
+                cast_dtm(medio, word, n)
+
+disc_dtm
+```
+
+```{r}
+
+```
+
+## Modelado de tópicos: STM
+
+Para implementar un modelado de temas con STM necesitamos construir una matriz DFM.
+```{r dfm}
+disc_dfm <- words_tidy_v2 %>%
+                cast_dfm(medio, word, n)
+
+disc_dfm
+```
+
+
+------------------------------------------------------------------------
 
 A continuación, seleccionar las noticias vinculadas a algún tópico
 relevante (por ejemplo, “Elecciones”) y construir un clasificador para
