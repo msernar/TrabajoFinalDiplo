@@ -19,6 +19,7 @@ library(plotly)
 library(topicmodels)
 library(tictoc)
 library(cowplot)
+library(reshape2)
 ```
 
 ## Etapa 1: carga de datos y preprocesamiento
@@ -558,7 +559,7 @@ incluyendolas en el listado de stopwords ampliado.*
 
 - El caso de La Nación ya se muestra normalizado, sin las stopwords que aparecían producto del scraping.
 
-- ESTO ES PARA REVISAR: En el conteo de Infobae aparecen 11 palabras en vez de 10.
+- ESTO ES PARA REVISAR: En el conteo de Infobae de la v2 aparecen 11 palabras en vez de 10.
 
 ------------------------------------------------------------------------
 ## Modelado de tópicos: LDA
@@ -566,7 +567,7 @@ incluyendolas en el listado de stopwords ampliado.*
 ¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar
 diferencias en cada uno de los medios? Explicar qué método se utilizó
 para responder la pregunta, cuáles son los supuestos del mismo. Generar
-las visualizaciones más adecuadas para responder a las preguntas
+las visualizaciones más adecuadas para responder a las preguntas.
 
 Para implementar un modelado de temas con LDA necesitamos construir una matriz DTM.
 ```{r dtm}
@@ -577,9 +578,97 @@ disc_dtm
 ```
 
 ```{r}
+lda_5 <- LDA(disc_dtm, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
 
+ap_topics <- tidy(lda_5, matrix = "beta") 
+
+ap_topics %>%
+  mutate(beta = round(100*beta,6))
+
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 15) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+ap_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales='free_y') +
+  scale_y_reordered() +
+  theme_minimal()
+```
+Pareciera que los cinco tópicos no tienen un sentido tan definido. Entonces, cabe la posibilidad de que haga falta utilizar un número de tópicos más elevado.
+
+A su vez, la visualización anterior muestra que algunas palabras como... son comunes a más de un tema. Es decir, que los tópicos identificados tienen cierta superposición en términos de palabras.Como alternativa, podríamos considerar los términos que tuvieran la mayor diferencia en β entre todos los temas.
+
+```{r}
+
+# ESTO NO SÉ SI ESTÁ BIEN APLICADO, EN LA NOTEBOOK EL CASO ERA ALGO DISTINTO. SE CALCULABA SOBRE LOS TÓPICOS MÁS DEFINIDOS, PERO EN NUESTRO CASO NINGUNO ES DEFINIDO.
+
+# Con este código calculamos el logaritmo de la proporción de cada tópico respecto al tópico de referencia para los cinco tópicos del conjunto de datos. Cada columna log_ratio representa la diferencia logarítmica entre los tópicos adyacentes. Esto proporciona información sobre cómo cambia la contribución relativa de cada tópico en comparación con su tópico adyacente.
+
+beta_wide3 <- ap_topics %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = beta) %>%
+  filter(topic1 > 0.002 | topic2 > 0.002 | topic3 > 0.002 | topic4 > 0.002 | topic5 > 0.002) %>%  # Filtro para eliminar valores muy bajos
+  mutate(log_ratio1_2 = log2(topic2 / topic1),
+         log_ratio2_3 = log2(topic3 / topic2),
+         log_ratio3_4 = log2(topic4 / topic3),
+         log_ratio4_5 = log2(topic5 / topic4),
+         log_ratio5_1 = log2(topic1 / topic5))
+
+beta_wide3
+```
+```{r}
+beta_wide3 %>%
+  ggplot(aes(x=reorder(term,log_ratio1_2) , y=log_ratio1_2)) +
+    geom_col() +
+    coord_flip() +
+    labs(x='Término',
+         y='Log2 ratio topic3/topic2') +
+    theme_minimal()
 ```
 
+```{r}
+beta_wide3 %>%
+  ggplot(aes(x=reorder(term,log_ratio2_3) , y=log_ratio2_3)) +
+    geom_col() +
+    coord_flip() +
+    labs(x='Término',
+         y='Log2 ratio topic2/topic1') +
+    theme_minimal()
+```
+```{r}
+beta_wide3 %>%
+  ggplot(aes(x=reorder(term,log_ratio3_4) , y=log_ratio3_4)) +
+    geom_col() +
+    coord_flip() +
+    labs(x='Término',
+         y='Log2 ratio topic4/topic3') +
+    theme_minimal()
+```
+```{r}
+beta_wide3 %>%
+  ggplot(aes(x=reorder(term,log_ratio4_5) , y=log_ratio4_5)) +
+    geom_col() +
+    coord_flip() +
+    labs(x='Término',
+         y='Log2 ratio topic5/topic4') +
+    theme_minimal()
+```
+
+```{r}
+beta_wide3 %>%
+  ggplot(aes(x=reorder(term, log_ratio5_1) , y= log_ratio5_1)) +
+    geom_col() +
+    coord_flip() +
+    labs(x='Término',
+         y='Log2 ratio topic1/topic5') +
+    theme_minimal()
+```
+```
 ## Modelado de tópicos: STM
 
 Para implementar un modelado de temas con STM necesitamos construir una matriz DFM.
