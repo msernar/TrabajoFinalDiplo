@@ -599,9 +599,30 @@ ap_top_terms %>%
   scale_y_reordered() +
   theme_minimal()
 ```
-Pareciera que los cinco tópicos no tienen un sentido tan definido. Entonces, cabe la posibilidad de que haga falta utilizar un número de tópicos más elevado.
+```{r}
+lda_10 <- LDA(disc_dtm, k = 10, control = list(seed = 1234))  
 
-A su vez, la visualización anterior muestra que algunas palabras como... son comunes a más de un tema. Es decir, que los tópicos identificados tienen cierta superposición en términos de palabras.Como alternativa, podríamos considerar los términos que tuvieran la mayor diferencia en β entre todos los temas.
+ap_topics <- tidy(lda_10, matrix = "beta") 
+
+ap_topics %>%
+  mutate(beta = round(100*beta,6))
+
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+ap_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales='free_y') +
+  scale_y_reordered() +
+  theme_minimal()
+```
+
+Pareciera que las pruebas tanto con cinco como con diez tópicos no reflejan un sentido tan definido. Las dos visualizaciones anteriores muestran que algunas palabras como "gobierno", "presidente", "fernandez", entre otras, son comunes a más de un tema. Es decir, que los tópicos identificados tienen cierta superposición en términos de palabras. Esto podría deberse a que los documentos en el corpus tratan sobre temas relacionados o tienen un contenido similar. Como alternativa, podríamos considerar los términos que tuvieran la mayor diferencia en β entre todos los temas.
 
 ```{r}
 
