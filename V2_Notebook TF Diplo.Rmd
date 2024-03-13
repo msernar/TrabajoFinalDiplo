@@ -106,7 +106,7 @@ corpus_tidy <- corpus_tidy %>%
 
 ### Corrección "años"
 
-```{r años}
+```{r correccion}
 corpus_tidy <- corpus_tidy %>% 
   mutate(word = case_when(
     word == 'ano' ~ 'anio',
@@ -121,8 +121,7 @@ corpus_tidy <- corpus_tidy %>%
 
 ### Exploración palabras más frecuentes
 
-Comenzamos explorando el corpus en formato tidy para identificar
-rápidamente algunos de los términos más frecuentes por medio.
+Comenzamos explorando el corpus en formato tidy para identificar rápidamente algunos de los términos más frecuentes por medio.
 
 ```{r explore_freqs}
 corpus_tidy %>%
@@ -226,14 +225,13 @@ Algunas observaciones preliminares:
 -   Crónica, LN e Infobae son los únicos que no incluyen nombres propios
 entre las palabras más frecuentes.
 
--   En LN hay muchas referencias a redes sociales y acciones en ellas (guardar, compartir). Las acciones y "fuente" podrían ser stopwords. Incluso las menciones a RRSS podrían ser producto del scrapping y no del contenido de las notas. COMENTARIO: ESTO PARECERÍA SER ASÍ, NO? DIGO, QUE TAL VEZ SEA LA RESPUESTA QUE SE BUSCA, LA CORRECTA, PORQUE EN DEFINITIVA SE APLICARON LOS MISMOS CÓDIGOS A TODOS LOS MEDIOS. ENTONCES, SEGURAMENTE SEA COMO DECÍS, UN ERROR DEL SCRAPPING. COMENTARIO LUEGO DEL V2: YA QUEDÓ CORREGIDO EL CASO DE LN, PERO NO ENTIENDO CÓMO JAJA (DIGO, TENIENDO EN CUENTA EL COMENTARIO ANTERIOR QUE HICE).
+-   En LN hay muchas referencias a redes sociales y acciones en ellas (guardar, compartir). Las acciones y "fuente" podrían ser stopwords. Incluso las menciones a RRSS podrían ser producto del scrapping y no del contenido de las notas.
 
 -   Macri aparece como el político más nombrado. Lógicamente, es un resultado esperable si se tiene en cuenta que las notas relevadas corresponden al último año de su gobierno. 
 
 -  Infobae y sobre todo Crónica parecen cubrir temas más generales que los demás medios, al incluir palabras como "polícía", "ciudad", "mujer", "hombre", "casa", "personas", "mundo", "vida". Incluso, la frecuencia de la palabra "policía" en Crónica (#2 o #1 si se excluye el término "anio") podría indicar que la mayor parte de la cobertura de este medio se orienta a la temática policial. De todas formas, en el top 10 también aparecen palabras como "gobierno" y "presidente".
 
--   La palabra "frente" aparece con frecuencia en varios medios, lo que
-nos inclina a corroborar si refiere a frentes electorales o simplemente a un adverbio de lugar y, en este caso, debería considerarse como stopword.
+-   La palabra "frente" aparece con frecuencia en varios medios, lo que nos inclina a corroborar si refiere a frentes electorales o simplemente a un adverbio de lugar y, en este caso, debería considerarse como stopword.
 
 -   A modo de síntesis, podría advertirse que las palabras con mayor frecuencia de aparición en la totalidad de los medios se corresponden con la temática política. Es probable que esta vinculación sea un desprendimiento del escenario electoral que signó el período bajo análisis.
 
@@ -261,6 +259,36 @@ words_tidy <- words_tidy %>%
 # En este código contamos la frecuencia de cada palabra en el corpus del medio y también el total de palabras en el medio. Con estos datos podemos calcular a continuación la importancia de cada término en el medio.
 ```
 
+## PRUEBITASSS
+```{r}
+words_tidy_test <- corpus_tidy %>% 
+  group_by(id, word, medio) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n)) 
+
+total_words_test <- words_tidy_test %>%
+        group_by(id) %>%
+        summarize(total = sum(n)) 
+
+words_tidy_test <- words_tidy_test %>% 
+  left_join(total_words_test) %>% 
+  ungroup() %>% 
+  arrange(desc(n))
+
+t <- words_tidy_test %>% mutate(tf = n/total) %>%
+          ggplot(aes(tf)) +
+                geom_histogram(show.legend = FALSE) +
+                coord_flip()+
+                #xlim(NA, 0.0002) +
+                facet_wrap(~medio) +
+                theme_classic()+
+                theme(plot.title = element_text(hjust= 0.5),
+                      axis.title = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      text = element_text(family = "Courier"))
+                  
+
+```
 En esta visualización podemos interactuar para identificar la cantidad de términos por tf:
 
 ```{r tf_viz_manual}
@@ -331,6 +359,7 @@ Pasamos cada uno de los top ten de términos por la función de graficado para v
 ```{r tf_viz}
 crear_graf_words(tf_10)
 ```
+
 ```{r idf_viz}
 crear_graf_words(idf_10)
 ```
@@ -358,13 +387,7 @@ Análisis preliminar de TF-IDF:
 
 El análisis realizado nos permitió encontrar numerosas palabras incluidas en el corpus que creemos son producto del scrapping. Previo a la modelización para identificar tópicos creemos pertinente ampliar el listado de stopwords y repetir el preprocesamiento de los datos. 
 
-COMENTARIO: EN REALIDAD, ESAS NUEVAS "STOPWORDS" NO TENDRÍAN MÁS QUE VER CON EL HECHO DE QUE SON TÉRMINOS MUY ESPECÍFICOS QUE NO FIGURAN EN LOS DICCIONARIOS QUE SE USAN PARA LIMPIAR LAS STOPWORDS? 
---> si, es eso! en clase dijeron que muchas veces hay que ajustar los listados de stopwords al corpus que estemos trabajando
-
 Para ampliar el listado de stopwords partimos del listado de palabras con sus métricas de tf e idf.
-
-COMENTARIO: ACÁ ME PERDÍ UN POCO: ESTA LIMPIEZA DE PUNTOS NO ESTABA HECHA EN LOS PRIMEROS PASOS DEL TP?
---> el código del inicio transforma letras con acentos o diéresis en letras normales, no elimina puntos que esten entre letras
 
 ```{r stopwords_v2}
 # Mediante el siguiente código eliminamos palabras que incluyen puntos y parecen producto de scrapping web. 
@@ -402,9 +425,6 @@ corpus_tidy_v2 <- corpus_tidy %>%
   anti_join(stop_words_full_v2)
 ```
 
-### A PARTIR DE ACÁ
-intenté calcular las métricas por noticia, pero como la consigna dice "términos más importantes por medio" me pareció incorrecto. Volví al original de conteo por medio.
-
 ```{r words_tidy_v2} 
 words_tidy_v2 <- corpus_tidy_v2 %>% 
   group_by(medio, word) %>%
@@ -422,8 +442,7 @@ words_tidy_v2 <- words_tidy_v2 %>%
 
 ### Revisión de métricas
 
-Creamos el gráfico con la distribución de términos según su tf para
-identificar variaciones respecto a la v1.
+Creamos el gráfico con la distribución de términos según su tf para identificar variaciones respecto a la v1.
 
 ```{r tf_viz_manual_v2}
 tf_viz_v2 <- words_tidy_v2 %>% mutate(tf = n/total) %>%
@@ -479,7 +498,9 @@ tf_idf_10_v2 <- tf_idf_v2 %>%
 ```
 
 ```{r tf_viz_v2}
-crear_graf_words(tf_10_v2)
+crear_graf_words(tf_10_v2) 
+
+crear_graf_words(tf_10)
 ```
 
 ```{r idf_viz_v2}
@@ -499,15 +520,14 @@ Análisis final de TF-IDF:
 ------------------------------------------------------------------------
 ## Modelado de tópicos: LDA
 
-¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar
-diferencias en cada uno de los medios? Explicar qué método se utilizó
-para responder la pregunta, cuáles son los supuestos del mismo. Generar
-las visualizaciones más adecuadas para responder a las preguntas.
+¿Cuáles son los tópicos principales en el corpus? ¿Pueden evidenciar diferencias en cada uno de los medios? Explicar qué método se utilizó para responder la pregunta, cuáles son los supuestos del mismo. Generar las visualizaciones más adecuadas para responder a las preguntas.
 
 Para implementar un modelado de temas con LDA necesitamos construir una matriz DTM.
 
 # A PARTIR DE ACÁ
 dejo las dos pruebas para que puedas comparar. Si usamos la matriz término-frecuencia por MEDIO, la detección de tópicos da cualquier cosa. Si usamos la matriz término-frecuencia por NOTICIA el resultado tiene más sentido. No estoy segura como se explica, quizás podemos encontrar alguna justificación. 
+
+--> Nos quedamos con la versión 2 (por id)
 
 ```{r dtm_1}
 disc_dtm_1 <- words_tidy_v2 %>%
@@ -551,9 +571,8 @@ ap_top_terms %>%
   theme_minimal()
 ```
 
-
-```{r LDA_v2}
-lda_5_v2 <- LDA(disc_dtm_2, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
+```{r}
+lda_5_v2 <- LDA(disc_dtm_2, k = 10, control = list(seed = 10))  # k es el número de tópicos a identificar
 
 ap_topics_2 <- tidy(lda_5_v2, matrix = "beta") 
 # la función tidy convierte el modelo a un tópico-término por fila
@@ -575,6 +594,7 @@ ap_top_terms_2 %>%
   scale_y_reordered() +
   theme_minimal()
 ```
+
 
 Pareciera que los cinco tópicos no tienen un sentido tan definido. Entonces, cabe la posibilidad de que haga falta utilizar un número de tópicos más elevado.
 
