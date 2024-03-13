@@ -24,39 +24,24 @@ library(reshape2)
 
 ## Etapa 1: carga de datos y preprocesamiento
 
-El archivo que se adjunta consiste en un corpus de unas 7.000 noticias
-scrapeadas entre julio y septiembre de 2019 de los siguientes medios de
-circulación nacional:
+El archivo que se adjunta consiste en un corpus de unas 7.000 noticias scrapeadas entre julio y septiembre de 2019 de los siguientes medios de circulación nacional:
 
 Télam La Nación Clarín Perfil Infobae MinutoUno Página 12
 
-Constituye una muestra aleatoria del corpus construido por Florencia
-Piñeyrúa para su tesina de grado “Procesamiento del lenguaje natural
-aplicado al estudio de tópicos de noticias de seguridad en Argentina:
-julio a septiembre 2019”. Una exposición más concentrada de sus
-resultados puede encontrarse en el siguiente artículo.
+Constituye una muestra aleatoria del corpus construido por Florencia Piñeyrúa para su tesina de grado “Procesamiento del lenguaje natural aplicado al estudio de tópicos de noticias de seguridad en Argentina: julio a septiembre 2019”. Una exposición más concentrada de sus resultados puede encontrarse en el siguiente artículo.
 
 El corpus contiene las siguientes variables:
 
 id : identificador de cada documento
-
 url : link a la noticia original
-
 fecha : fecha de publicación
-
 anio : año de publicación
-
 mes : mes de publicación
-
 dia : dia de publicación
-
 medio : medio en el que fue publicado
-
 orientacion: clasificación -provisoria- de los medios según su línea
 editorial predominante (más conservador, más progresista, neutral)
-
 titulo
-
 texto
 
 ### Carga dataset
@@ -121,7 +106,7 @@ corpus_tidy <- corpus_tidy %>%
 
 ### Corrección "años"
 
-```{r corpus_tidy}
+```{r años}
 corpus_tidy <- corpus_tidy %>% 
   mutate(word = case_when(
     word == 'ano' ~ 'anio',
@@ -130,22 +115,9 @@ corpus_tidy <- corpus_tidy %>%
   ))
 ```
 
-```{r}
-# PROBÉ UN MONTÓN DE ALTERNATIVAS, PERO EL CÓDIGO DE LA LEMATIZACIÓN SIGUE SIN FUNCIONAR (FIJATE QUE EL ELEMENTO CORPUS_TIDY_LEMM DUPLICA LAS MIMAS PALABRAS EN LA ÚLTIMA COLUMNA). ENTIENDO QUE PUEDE SER UN TEMA DEL DICCIONARIO QUE SE USA, PERO CON OTRAS OPCIONES TAMPOCO ME FUNCIONA
-corpus_tidy_lemm <- corpus_tidy %>%
-  mutate(word_lemmatized = lemmatize_words(word, language = "es"))
-
-corpus_tidy_lemm %>% 
-  filter(word != word_lemmatized) %>% 
-  select(word, word_lemmatized)
-```
-
 ## Etapa 2: Consignas
 
-¿Cuáles son las palabras más utilizadas en cada uno de los medios?
-¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas
-trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones
-que considere más pertinentes para responder la pregunta.
+¿Cuáles son las palabras más utilizadas en cada uno de los medios? ¿Pueden verse diferencias? (Tener en cuenta las diferentes métricas trabajadas en el curso: tf, tf-idf, etc.) Generar las visualizaciones que considere más pertinentes para responder la pregunta.
 
 ### Exploración palabras más frecuentes
 
@@ -203,8 +175,7 @@ word_counts_top_10 <- word_counts_10 %>%
 # Unifico en un dataset
 ```
 
-A continuación creamos una función para automatizar todas las
-visualizaciones relacionadas a las métricas del corpus. COMENTARIO: CUÁLES SERÍAN LAS MÉTRICAS? EN TODO CASO, HASTA NO APARECE UNA SOLA MÉTRICA? (LA FRECUENCIA)
+A continuación creamos una función para automatizar todas las visualizaciones relacionadas a las métricas del corpus. 
 
 ```{r crear_viz}
 crear_graf_words <- function(data) {
@@ -238,9 +209,7 @@ crear_graf_words <- function(data) {
 
 ```
 
-El eje x muestra las palabras y el eje y muestra la frecuencia de cada
-palabra. El gráfico está segmentado en paneles por cada medio, y las
-escalas del eje y se ajustan para cada panel individual.
+El eje x muestra las palabras y el eje y muestra la frecuencia de cada palabra. El gráfico está segmentado en paneles por cada medio, y las escalas del eje y se ajustan para cada panel individual.
 
 ```{r viz}
 crear_graf_words(word_counts_top_10)
@@ -268,18 +237,15 @@ nos inclina a corroborar si refiere a frentes electorales o simplemente a un adv
 
 -   A modo de síntesis, podría advertirse que las palabras con mayor frecuencia de aparición en la totalidad de los medios se corresponden con la temática política. Es probable que esta vinculación sea un desprendimiento del escenario electoral que signó el período bajo análisis.
 
-
 ### Term Frequency - TF:
 
-A modo de práctica generamos el cálculo de term frequency manualmente
-para visualizar la distribución de términos según su
-frecuencia respecto al total de términos, aperturado por medio.
+A modo de práctica generamos el cálculo de term frequency manualmente para visualizar la distribución de términos según su frecuencia respecto al total de términos, aperturado por medio.
 
-```{r tf_manual}
+```{r words_tidy}
 # La "term frequency" (frecuencia de término) es una métrica para evaluar la importancia de una palabra en un documento o corpus de documentos, a partir de la medición de la frecuencia de su aparición en comparación con el número total de palabras.
 
 words_tidy <- corpus_tidy %>% 
-  group_by(medio, word) %>%
+  group_by(medio, word) %>% # en función de la consigna, hacemos el conteo de términos por medio
   summarise(n=n()) %>% 
   arrange(desc(n)) 
 
@@ -295,11 +261,7 @@ words_tidy <- words_tidy %>%
 # En este código contamos la frecuencia de cada palabra en el corpus del medio y también el total de palabras en el medio. Con estos datos podemos calcular a continuación la importancia de cada término en el medio.
 ```
 
-En esta visualización podemos interactuar para identificar la cantidad
-de términos por tf:
-
-*Idea–\> agregar dato de términos totales por medio para comprender qué
-peso tiene cada línea de tf/count de términos en cada corpus.*
+En esta visualización podemos interactuar para identificar la cantidad de términos por tf:
 
 ```{r tf_viz_manual}
 tf_viz <- words_tidy %>% mutate(tf = n/total) %>%
@@ -318,21 +280,15 @@ ggplotly(tf_viz)
 
 ```
 
-Vemos que para los medios más masivos se cumple la Ley de Zipf: pocas
-palabras ocurren muchas veces. Los corpus de Crónica, Minuto Uno y Télam
-tienen menos términos que los demás y la tf tiene un rango menor (uso de
-palabras mejor distribuido).
-
+Vemos que para los medios más masivos se cumple la Ley de Zipf: pocas palabras ocurren muchas veces. Los corpus de Crónica, Minuto Uno y Télam tienen menos términos que los demás y la tf tiene un rango menor (uso de palabras mejor distribuido).
 
 ### Term Frequency - Inverse Document Frequency (TF-IDF)
 
-En esta etapa complementamos el análisis con las métricas de idf y
-tf_idf, para obtener una medida más completa de la importancia de los
-términos en el corpus de documentos.
+En esta etapa complementamos el análisis con las métricas de idf y tf_idf, para obtener una medida más completa de la importancia de los términos en el corpus de documentos.
 
 ```{r tf_idf}
 tf_idf <- words_tidy %>% 
-  bind_tf_idf(word, medio, n)
+  bind_tf_idf(word, medio, n) 
 
 tf_idf %>% select(-total) %>% 
   arrange(desc(tf_idf))
@@ -340,8 +296,7 @@ tf_idf %>% select(-total) %>%
 # En este código calculamos las métricas tf, idf y tf_idf para todos los términos del corpus
 ```
 
-Creamos tres dataset, uno por métrica, con el top ten de términos para
-pasarle a la función de visualización.
+Creamos tres dataset, uno por métrica, con el top ten de términos para pasarle a la función de visualización.
 
 ```{r top_ten_metricas}
 tf_10 <- tf_idf %>%
@@ -361,7 +316,6 @@ idf_10 <- tf_idf %>%
           mutate(n = log(n + 1) * 100) %>% 
           mutate(n = round(n, 4))
 
-
 tf_idf_10 <- tf_idf %>%
         group_by(medio) %>%
         arrange(desc(idf)) %>%
@@ -372,13 +326,11 @@ tf_idf_10 <- tf_idf %>%
         mutate(n = round(n, 4))
 ```
 
-Pasamos cada uno de los top ten de términos por la función de graficado
-para visualizar los términos más importantes según cada métrica.
+Pasamos cada uno de los top ten de términos por la función de graficado para visualizar los términos más importantes según cada métrica.
 
 ```{r tf_viz}
 crear_graf_words(tf_10)
 ```
-
 ```{r idf_viz}
 crear_graf_words(idf_10)
 ```
@@ -404,16 +356,18 @@ Análisis preliminar de TF-IDF:
 
 ## Etapa 1.2: Ampliación stopwords y reprocesamiento de la base
 
-El análisis realizado nos permitió encontrar numerosas palabras
-incluidas en el corpus que creemos son producto del scrapping. Previo a
-la modelización para identificar tópicos creemos pertinente ampliar el
-listado de stopwords y repetir el preprocesamiento de los datos. COMENTARIO: EN REALIDAD, ESAS NUEVAS "STOPWORDS" NO TENDRÍAN MÁS QUE VER CON EL HECHO DE QUE SON TÉRMINOS MUY ESPECÍFICOS QUE NO FIGURAN EN LOS DICCIONARIOS QUE SE USAN PARA LIMPIAR LAS STOPWORDS? 
+El análisis realizado nos permitió encontrar numerosas palabras incluidas en el corpus que creemos son producto del scrapping. Previo a la modelización para identificar tópicos creemos pertinente ampliar el listado de stopwords y repetir el preprocesamiento de los datos. 
 
-Para ampliar el listado de stopwords partimos del listado de palabras
-con sus métricas de tf e idf.
+COMENTARIO: EN REALIDAD, ESAS NUEVAS "STOPWORDS" NO TENDRÍAN MÁS QUE VER CON EL HECHO DE QUE SON TÉRMINOS MUY ESPECÍFICOS QUE NO FIGURAN EN LOS DICCIONARIOS QUE SE USAN PARA LIMPIAR LAS STOPWORDS? 
+--> si, es eso! en clase dijeron que muchas veces hay que ajustar los listados de stopwords al corpus que estemos trabajando
+
+Para ampliar el listado de stopwords partimos del listado de palabras con sus métricas de tf e idf.
+
+COMENTARIO: ACÁ ME PERDÍ UN POCO: ESTA LIMPIEZA DE PUNTOS NO ESTABA HECHA EN LOS PRIMEROS PASOS DEL TP?
+--> el código del inicio transforma letras con acentos o diéresis en letras normales, no elimina puntos que esten entre letras
 
 ```{r stopwords_v2}
-# Mediante el siguiente código eliminamos palabras que incluyen puntos y parecen producto de scrapping web. COMENTARIO: ACÁ ME PERDÍ UN POCO: ESTA LIMPIEZA DE PUNTOS NO ESTABA HECHA EN LOS PRIMEROS PASOS DEL TP?
+# Mediante el siguiente código eliminamos palabras que incluyen puntos y parecen producto de scrapping web. 
 nuevas_stopwords_1 <- tf_idf %>% 
   select(word) %>% 
   filter(grepl('\\.', word)) %>% 
@@ -437,20 +391,21 @@ nuevas_stopwords <- data.frame(word = nuevas_stopwords_1) %>%
   bind_rows(data.frame(word = nuevas_stopwords_3))
 
 stop_words_full_v2 <- stop_words_full %>% 
-  bind_rows(tibble(word = c('embed', 'anio', 'ano', 'anos', 'gusta', 'twitter', 'facebook', 'comentar', 'fuente', 'whatsapp', 'guardar', 'compartir', 'mail', 'loading', 'email', 'paginai', 'eltrece', 'infobae' ))) %>% 
+  bind_rows(tibble(word = c('embed', 'anio', 'ano', 'anos', 'gusta', 'twitter', 'facebook', 'comentar', 'fuente', 'whatsapp', 'guardar', 'compartir', 'mail', 'loading', 'email', 'paginai', 'eltrece', 'infobae', 'http', 'https', 'attribute', 'find_all', 'nonetype', 'object', 'read' ))) %>% 
   bind_rows(nuevas_stopwords)
 ```
 
-A partir de la nueva lista de stopwords, recreamos el corpus en formato
-tidy y también el dataframe en formato medio/término/n para continuar
-con el análisis de métricas.
+A partir de la nueva lista de stopwords, recreamos el corpus en formato tidy y también el dataframe en formato medio/término/n para continuar con el análisis de métricas.
 
 ```{r corpus_tidy_v2}
 corpus_tidy_v2 <- corpus_tidy %>% 
   anti_join(stop_words_full_v2)
 ```
 
-```{r words_tidy_v2}
+### A PARTIR DE ACÁ
+intenté calcular las métricas por noticia, pero como la consigna dice "términos más importantes por medio" me pareció incorrecto. Volví al original de conteo por medio.
+
+```{r words_tidy_v2} 
 words_tidy_v2 <- corpus_tidy_v2 %>% 
   group_by(medio, word) %>%
   summarise(n=n())
@@ -486,31 +441,19 @@ tf_viz_v2 <- words_tidy_v2 %>% mutate(tf = n/total) %>%
 ggplotly(tf_viz_v2)
 ```
 
-*-\> falta comparar y análisis respecto a tf en v1. Comparar cuántos
-terminos caen en la tf más cercana a 0 (terminos con baja importancia en
-el corpus). A su vez, al quitar más stopwords deberíamos ver menos
-términos cayendo en las tf más altas por ser palabras random que
-aparecen pocas veces en el corpus*
-
-# No se observan variaciones significativas entre v1 y v2 (ESTO LO DIGO A OJO, MIRANDO LOS DOS GRÁFICOS; ACÁ YA ME PERDÍ BASTANTE CON EL PLANTEO DE RECORTE DE LAS STOPWORDS).
 
 ```{r tf_idf_v2}
 tf_idf_v2 <- words_tidy_v2 %>% 
-  bind_tf_idf(word, medio, n)
-
-tf_idf_v2 %>% 
-  arrange(desc(tf_idf)) %>% 
-  select(word) %>% 
-  distinct()
+  bind_tf_idf(word, medio, n) 
 ```
 
-Creamos los dataset necesarios para visualizar los principales términos
-por métrica y por medio, buscando diferencias respecto a la v1.
+Creamos los dataset necesarios para visualizar los principales términos por métrica y por medio, buscando diferencias respecto a la v1.
 
 ```{r top_ten_metricas_v2}
 tf_10_v2 <- tf_idf_v2 %>%
         group_by(medio) %>%
-        slice_max(tf, n = 10) %>% 
+        arrange(desc(tf)) %>%
+        slice_head(n = 10) %>%
         select(medio, word, tf) %>% 
         rename(n = tf) %>%
         mutate(n = log(n + 1) * 100) %>% 
@@ -524,7 +467,6 @@ idf_10_v2 <- tf_idf_v2 %>%
           rename(n = idf) %>%
           mutate(n = log(n + 1) * 100) %>% 
           mutate(n = round(n, 4))
-
 
 tf_idf_10_v2 <- tf_idf_v2 %>%
         group_by(medio) %>%
@@ -550,16 +492,9 @@ crear_graf_words(tf_idf_10_v2)
 
 Análisis final de TF-IDF:
 
-*Comparar con análisis anterior y validar si estamos ok con los términos
-más importantes del corpus para empezar con la detección de tópicos. A
-simple vista parece que todavía podemos limpiar algunas palabras más,
-incluyendolas en el listado de stopwords ampliado.*
-
 -   En todos los medios, excepto en La Nación que no la incluía, logró eliminarse la palabra "anio" que figuraba en el primer lugar en términos de frecuencia. Además, en los casos de Crónica y Minuto 1, se eliminó otra palabra adicional incorporando, de esa manera, dos nuevas al top diez. 
 
 - El caso de La Nación ya se muestra normalizado, sin las stopwords que aparecían producto del scraping.
-
-- ESTO ES PARA REVISAR: En el conteo de Infobae de la v2 aparecen 11 palabras en vez de 10.
 
 ------------------------------------------------------------------------
 ## Modelado de tópicos: LDA
@@ -570,17 +505,33 @@ para responder la pregunta, cuáles son los supuestos del mismo. Generar
 las visualizaciones más adecuadas para responder a las preguntas.
 
 Para implementar un modelado de temas con LDA necesitamos construir una matriz DTM.
-```{r dtm}
-disc_dtm <- words_tidy_v2 %>%
+
+# A PARTIR DE ACÁ
+dejo las dos pruebas para que puedas comparar. Si usamos la matriz término-frecuencia por MEDIO, la detección de tópicos da cualquier cosa. Si usamos la matriz término-frecuencia por NOTICIA el resultado tiene más sentido. No estoy segura como se explica, quizás podemos encontrar alguna justificación. 
+
+```{r dtm_1}
+disc_dtm_1 <- words_tidy_v2 %>%
                 cast_dtm(medio, word, n)
 
-disc_dtm
 ```
 
-```{r}
-lda_5 <- LDA(disc_dtm, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
 
-ap_topics <- tidy(lda_5, matrix = "beta") 
+```{r dtm_2}
+para_disc_dtm <- corpus_tidy_v2 %>% 
+  group_by(id, word) %>%
+  summarise(n=n())
+# creo un conteo de palabras por noticia, no por medio 
+
+disc_dtm_2 <- para_disc_dtm %>%
+                cast_dtm(id, word, n)
+
+```
+
+```{r LDA_original}
+lda_orig_5 <- LDA(disc_dtm_1, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
+
+ap_topics <- tidy(lda_orig_5, matrix = "beta") 
+# la función tidy convierte el modelo a un tópico-término por fila
 
 ap_topics %>%
   mutate(beta = round(100*beta,6))
@@ -599,21 +550,24 @@ ap_top_terms %>%
   scale_y_reordered() +
   theme_minimal()
 ```
-```{r}
-lda_10 <- LDA(disc_dtm, k = 10, control = list(seed = 1234))  
 
-ap_topics <- tidy(lda_10, matrix = "beta") 
 
-ap_topics %>%
+```{r LDA_v2}
+lda_5_v2 <- LDA(disc_dtm_2, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
+
+ap_topics_2 <- tidy(lda_5_v2, matrix = "beta") 
+# la función tidy convierte el modelo a un tópico-término por fila
+
+ap_topics_2 %>%
   mutate(beta = round(100*beta,6))
 
-ap_top_terms <- ap_topics %>%
+ap_top_terms_2 <- ap_topics_2 %>%
   group_by(topic) %>%
-  slice_max(beta, n = 10) %>% 
+  slice_max(beta, n = 15) %>% 
   ungroup() %>%
   arrange(topic, -beta)
 
-ap_top_terms %>%
+ap_top_terms_2 %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   ggplot(aes(beta, term, fill = factor(topic))) +
   geom_col(show.legend = FALSE) +
@@ -622,7 +576,9 @@ ap_top_terms %>%
   theme_minimal()
 ```
 
-Pareciera que las pruebas tanto con cinco como con diez tópicos no reflejan un sentido tan definido. Las dos visualizaciones anteriores muestran que algunas palabras como "gobierno", "presidente", "fernandez", entre otras, son comunes a más de un tema. Es decir, que los tópicos identificados tienen cierta superposición en términos de palabras. Esto podría deberse a que los documentos en el corpus tratan sobre temas relacionados o tienen un contenido similar. Como alternativa, podríamos considerar los términos que tuvieran la mayor diferencia en β entre todos los temas.
+Pareciera que los cinco tópicos no tienen un sentido tan definido. Entonces, cabe la posibilidad de que haga falta utilizar un número de tópicos más elevado.
+
+A su vez, la visualización anterior muestra que algunas palabras como... son comunes a más de un tema. Es decir, que los tópicos identificados tienen cierta superposición en términos de palabras.Como alternativa, podríamos considerar los términos que tuvieran la mayor diferencia en β entre todos los temas.
 
 ```{r}
 
@@ -642,6 +598,7 @@ beta_wide3 <- ap_topics %>%
 
 beta_wide3
 ```
+
 ```{r}
 beta_wide3 %>%
   ggplot(aes(x=reorder(term,log_ratio1_2) , y=log_ratio1_2)) +
@@ -661,6 +618,7 @@ beta_wide3 %>%
          y='Log2 ratio topic2/topic1') +
     theme_minimal()
 ```
+
 ```{r}
 beta_wide3 %>%
   ggplot(aes(x=reorder(term,log_ratio3_4) , y=log_ratio3_4)) +
@@ -670,6 +628,7 @@ beta_wide3 %>%
          y='Log2 ratio topic4/topic3') +
     theme_minimal()
 ```
+
 ```{r}
 beta_wide3 %>%
   ggplot(aes(x=reorder(term,log_ratio4_5) , y=log_ratio4_5)) +
@@ -689,7 +648,7 @@ beta_wide3 %>%
          y='Log2 ratio topic1/topic5') +
     theme_minimal()
 ```
-```
+
 ## Modelado de tópicos: STM
 
 Para implementar un modelado de temas con STM necesitamos construir una matriz DFM.
