@@ -20,6 +20,7 @@ library(topicmodels)
 library(tictoc)
 library(cowplot)
 library(reshape2)
+library(stm)
 ```
 
 ## Etapa 1: carga de datos y preprocesamiento
@@ -524,18 +525,6 @@ Análisis final de TF-IDF:
 
 Para implementar un modelado de temas con LDA necesitamos construir una matriz DTM.
 
-# A PARTIR DE ACÁ
-dejo las dos pruebas para que puedas comparar. Si usamos la matriz término-frecuencia por MEDIO, la detección de tópicos da cualquier cosa. Si usamos la matriz término-frecuencia por NOTICIA el resultado tiene más sentido. No estoy segura como se explica, quizás podemos encontrar alguna justificación. 
-
---> Nos quedamos con la versión 2 (por id)
-
-```{r dtm_1}
-disc_dtm_1 <- words_tidy_v2 %>%
-                cast_dtm(medio, word, n)
-
-```
-
-
 ```{r dtm_2}
 para_disc_dtm <- corpus_tidy_v2 %>% 
   group_by(id, word) %>%
@@ -546,31 +535,7 @@ disc_dtm_2 <- para_disc_dtm %>%
                 cast_dtm(id, word, n)
 
 ```
-
-```{r LDA_original}
-lda_orig_5 <- LDA(disc_dtm_1, k = 5, control = list(seed = 1234))  # k es el número de tópicos a identificar
-
-ap_topics <- tidy(lda_orig_5, matrix = "beta") 
-# la función tidy convierte el modelo a un tópico-término por fila
-
-ap_topics %>%
-  mutate(beta = round(100*beta,6))
-
-ap_top_terms <- ap_topics %>%
-  group_by(topic) %>%
-  slice_max(beta, n = 15) %>% 
-  ungroup() %>%
-  arrange(topic, -beta)
-
-ap_top_terms %>%
-  mutate(term = reorder_within(term, beta, topic)) %>%
-  ggplot(aes(beta, term, fill = factor(topic))) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~ topic, scales='free_y') +
-  scale_y_reordered() +
-  theme_minimal()
-```
-
+En primer lugar intentamos detectar 5 tópicos:
 ```{r}
 lda_v2_5 <- LDA(disc_dtm_2, k = 5, control = list(seed = 555))  # k es el número de tópicos a identificar
 
@@ -599,7 +564,7 @@ Pareciera que los cinco tópicos arrojados como resultado tienen un sentido defi
 1- Política Nacional/ Elecciones
 2- Deportes
 3- Sociedad
-4- Política Internacinal
+4- Política Internacional
 5- Economía
 
 A continuación, hacemos una nueva prueba para explorar si es posible identificar una mayor cantidad de tópicos (k=10):
@@ -691,6 +656,7 @@ beta_wide <- ap_topics_5 %>%
 
 beta_wide
 ```
+
 ```{r}
 beta_wide %>%
   ggplot(aes(x=reorder(term,log_ratio1_5) , y=log_ratio1_5)) +
@@ -754,7 +720,7 @@ doc_2_topics %>%
     theme_minimal()
 ```
 Resultados (interpretación a desarrollar)
-Es posible reconocer diferencias en la prevalencia de los tópicos para cada uno de los medios, con expceción del tópico "Economía" que muestra una prevalencia similar en cuatro medios.
+Es posible reconocer diferencias en la prevalencia de los tópicos para cada uno de los medios, con excepción del tópico "Economía" que muestra una prevalencia similar en cuatro medios.
 
 1- Política Nacional/ Elecciones = Télam
 2- Deportes = Crónica
@@ -767,13 +733,138 @@ Es posible reconocer diferencias en la prevalencia de los tópicos para cada uno
 
 Para implementar un modelado de temas con STM necesitamos construir una matriz DFM.
 ```{r dfm}
-disc_dfm <- words_tidy_v2 %>%
-                cast_dfm(medio, word, n)
+para_disc_dfm <- corpus_tidy_v2 %>% 
+  group_by(id, word) %>%
+  summarise(n=n())
+
+disc_dfm <- para_disc_dfm %>%
+                cast_dfm(id, word, n)
 
 disc_dfm
 ```
 
+A diferencia del modelo LDA, STM permite incorporar metadata que podría influenciar la detección de tópicos. En este caso sumamos como covariable para cada documento a qué medio pertenece.
+```{r}
+metadata <- corpus_tidy_v2 %>% 
+  select(id, medio) %>% 
+  distinct() %>% 
+  left_join(corpus_base %>% select(id, texto))
 
+```
+Al igual que con LDA, comenzamos pidiendole al modelo que encuentre 5 tópicos en el corpus:
+```{r}
+stm_5 <- stm(documents = disc_dfm,
+      K = 5,
+      prevalence = ~medio,
+      max.em.its = 75, 
+      data = metadata,
+      init.type = "Spectral",
+      seed = 555)
+```
+
+Vamos a generar dos matrices parea explorar los resultados del modelo: palabras por tópico y documentos por tópico
+
+```{r}
+# matriz de términos por tópicos
+terminos_stm_5 <- tidy(stm_5, matrix = 'beta')
+
+# matriz de documentos por tópicos
+doc_stm_5 <- tidy(stm_5, matrix = 'theta')
+```
+
+```{r}
+ terminos_stm %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 15) %>% 
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales='free_y') +
+  scale_y_reordered() +
+  theme_minimal()
+```
+De manera similar al LDA, podemos identificar tópicos asociados a Política Nacional, a Deportes, a Economía y a Sociedad. No distingue contenidos relacionados a política internacional pero aparece un tópico judicial/policial.
+1- Política Nacional/ Elecciones
+2- Economía
+3- Justicia/Policial
+4- Sociedad
+5- Deportes
+
+A modo de prueba, y considerando que STM pudo identificar un nuevo tópico, corremos el módelo con un k mayor.
+```{r}
+stm_8 <- stm(documents = disc_dfm,
+      K = 8,
+      prevalence = ~medio,
+      max.em.its = 75, 
+      data = metadata,
+      init.type = "Spectral",
+      seed = 888)
+```
+
+```{r}
+# matriz de términos por tópicos
+terminos_stm_8 <- tidy(stm_8, matrix = 'beta')
+
+# matriz de documentos por tópicos
+doc_stm_8 <- tidy(stm_8, matrix = 'theta')
+```
+
+```{r}
+ terminos_stm_8 %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 15) %>% 
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales='free_y') +
+  scale_y_reordered() +
+  theme_minimal()
+```
+El modelo STM con k = 8 parece tener mayor éxito que LDA para detectar tópicos claros:
+1. Política internacional
+2. Políticas de Educación, Salud, Desarrollo Social
+3. Policiales y Justicia
+4. Sociedad y cultura
+5. Deportes
+6. Política Nacional
+7. Economía
+8. Clima y geografía
+
+Prueba con 10:
+
+```{r}
+stm_10 <- stm(documents = disc_dfm,
+      K = 10,
+      prevalence = ~medio,
+      max.em.its = 75, 
+      data = metadata,
+      init.type = "Spectral",
+      seed = 1010)
+```
+
+```{r}
+terminos_stm_10 <- tidy(stm_10, matrix = 'beta')
+
+# matriz de documentos por tópicos
+doc_stm_10 <- tidy(stm_10, matrix = 'theta')
+
+ terminos_stm_10 %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 15) %>% 
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales='free_y') +
+  scale_y_reordered() +
+  theme_minimal()
+```
+Repite política interncional, pero suma un tópico relacionado a medicina.
 ------------------------------------------------------------------------
 
 A continuación, seleccionar las noticias vinculadas a algún tópico
