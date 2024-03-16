@@ -728,6 +728,7 @@ metadata <- corpus_tidy_v2 %>%
 
 Al igual que con LDA, comenzamos pidiendole al modelo que encuentre 5 tópicos en el corpus:
 ```{r stm_5}
+# No correr
 stm_5 <- stm(documents = disc_dfm,
       K = 5,
       prevalence = ~medio,
@@ -735,6 +736,12 @@ stm_5 <- stm(documents = disc_dfm,
       data = metadata,
       init.type = "Spectral",
       seed = 555)
+
+write_rds(stm_5,"modelos/stm_5.rds")
+```
+
+```{r stm_5_pre}
+stm_5 <- read_rds("modelos/stm_5.rds")
 ```
 
 Vamos a generar dos matrices para explorar los resultados del modelo: palabras por tópico y documentos por tópico
@@ -768,6 +775,7 @@ De manera similar al LDA, podemos identificar tópicos asociados a Política Nac
 
 A modo de prueba, y considerando que STM pudo identificar un nuevo tópico, corremos el modelo con un k mayor.
 ```{r stm_8}
+# No correr
 stm_8 <- stm(documents = disc_dfm,
       K = 8,
       prevalence = ~medio,
@@ -775,6 +783,12 @@ stm_8 <- stm(documents = disc_dfm,
       data = metadata,
       init.type = "Spectral",
       seed = 888)
+
+write_rds(stm_8,"modelos/stm_8.rds")
+```
+
+```{r stm_8_pre}
+stm_8 <- read_rds("modelos/stm_8.rds")
 ```
 
 ```{r matriz_stm_8}
@@ -816,6 +830,12 @@ stm_10 <- stm(documents = disc_dfm,
       data = metadata,
       init.type = "Spectral",
       seed = 1010)
+
+write_rds(stm_10,"modelos/stm_10.rds")
+```
+
+```{r stm_10_pre}
+stm_10 <- read_rds("modelos/stm_10.rds")
 ```
 
 ```{r stm_10_terminos}
@@ -834,6 +854,7 @@ terminos_stm_10 <- tidy(stm_10, matrix = 'beta')
   theme_minimal()+
   labs(title = "Palabras más importantes en 10 tópicos STM") 
 ```
+
 Notamos que los tópicos 7 y 10 se vuelven similares entre sí, ambos parecen estar relacionados a política interncional. Aunque incorpora un tópico relacionado a medicina y salud puede verse que los términos asociados a él tienen un beta bajo, dando cuenta de la baja potencialidad de esta temática en el contenido analizado.
 
 Dados los resultados hasta acá del modelo STM, vamos a optar por quedarnos con un k=8 ya que muestra tópicos con mayor definición. 
@@ -926,7 +947,7 @@ combined_data <- bind_rows(predominancia_lda, predominancia_stm)
 # Gráfico de barras con etiquetas de tópicos
 ggplot(combined_data, aes(x = medio, y = mean, fill = model, label = topic)) +
   geom_bar(stat = "identity", position = "dodge") +
-  geom_text(position = position_dodge(width = 1),    # Posición de las etiquetas
+  geom_text(#position = position_dodge(width = 1),    # Posición de las etiquetas
             #vjust = -0.5,                             # Alineación vertical
             size = 3,                                 # Tamaño de la letra
             aes(color = model),                       # Color de las etiquetas
@@ -939,7 +960,7 @@ ggplot(combined_data, aes(x = medio, y = mean, fill = model, label = topic)) +
        y = "Predominancia",
        fill = "Modelo") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("LDA" = "grey", "STM" = "grey3")) +
+  scale_fill_manual(values = c("LDA" = "red3", "STM" = "blue4")) +
   scale_color_manual(values = c("LDA" = "black", "STM" = "white"))  # Color de las etiquetas
 
 ```
